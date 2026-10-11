@@ -98,6 +98,8 @@ class SimulationMetrics:
     pushes: int = 0
     blackjacks: int = 0
     is_eliminated: bool = False
+    optimal_decisions: int = 0
+    suboptimal_decisions: int = 0
 
 
 @dataclass

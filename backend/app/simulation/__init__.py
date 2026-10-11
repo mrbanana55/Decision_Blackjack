@@ -1,10 +1,3 @@
-"""Public interface for the Simulation Orchestrator package."""
-
-from app.simulation.agents import (
-    BasicStrategyAgent,
-    FakeJevAgent,
-    FakeLayaAgent,
-)
 from app.simulation.events import (
     EventEmitter,
     EventListener,
@@ -59,3 +52,10 @@ __all__ = [
     "SimulationSession",
     "SimulationStateError",
 ]
+
+
+def __getattr__(name: str):
+    if name in ("BasicStrategyAgent", "FakeJevAgent", "FakeLayaAgent"):
+        import app.simulation.agents as agents_mod
+        return getattr(agents_mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

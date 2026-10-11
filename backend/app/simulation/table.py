@@ -5,6 +5,7 @@ from app.engine.rules import TableRules
 from app.engine.settlement import RoundSettlement
 from app.engine.shoe import Shoe
 from app.engine.types import Action, RoundPhase, SettlementOutcome
+from app.models.decision_comparator import DecisionComparator, DecisionComparison
 from app.simulation.interfaces import DecisionProvider, IllegalAgentActionError
 from app.simulation.types import (
     AgentDecision,
@@ -32,6 +33,7 @@ class EntityTable:
         self.starting_bankroll: float = float(initial_bankroll)
         self.shoe_generation: int = shoe_generation
         self.is_eliminated: bool = False
+        self.comparator: DecisionComparator = DecisionComparator(rules=self.rules)
 
         active_shoe = shoe if shoe is not None else Shoe(num_decks=self.rules.num_decks)
         self.round_engine: BlackjackRound = BlackjackRound(
@@ -45,7 +47,10 @@ class EntityTable:
         self.losses: int = 0
         self.pushes: int = 0
         self.blackjacks: int = 0
+        self.optimal_decisions: int = 0
+        self.suboptimal_decisions: int = 0
         self.last_decision: AgentDecision | None = None
+        self.last_comparison: DecisionComparison | None = None
 
     @property
     def entity_type(self) -> EntityType:
@@ -82,19 +87,44 @@ class EntityTable:
             pushes=self.pushes,
             blackjacks=self.blackjacks,
             is_eliminated=self.is_eliminated,
+            optimal_decisions=self.optimal_decisions,
+            suboptimal_decisions=self.suboptimal_decisions,
         )
 
     def adopt_shoe(self, shoe: Shoe, generation: int) -> None:
         """Replace active shoe with a new generation from the shoe pool."""
         self.round_engine.shoe = shoe
         self.shoe_generation = generation
+        if hasattr(self.provider, "reset_count"):
+            self.provider.reset_count()
 
-    def start_round(self, bet: float) -> RoundState:
+    def start_round(self, bet: float | None = None) -> RoundState:
         """Initiate round with table bet if entity has sufficient funds."""
         if self.is_eliminated:
             raise RuntimeError(f"Entity '{self.entity_id}' is bankrupt and eliminated.")
 
+        if self.reshuffle_needed and hasattr(self.provider, "reset_count"):
+            self.provider.reset_count()
+
+        # Query provider.get_bet() if bet is not explicitly supplied (FR-008)
+        if bet is None:
+            if hasattr(self.provider, "get_bet"):
+                bet = self.provider.get_bet(
+                    bankroll=self.current_bankroll,
+                    min_bet=self.rules.min_bet,
+                )
+            else:
+                bet = self.rules.min_bet
+
         state = self.round_engine.start_round(bet)
+
+        # Notify provider of dealt player cards if it supports card observation
+        if hasattr(self.provider, "observe_cards"):
+            visible_cards = list(self.round_engine.player_hands[0].cards)
+            if self.round_engine.dealer_hand.upcard:
+                visible_cards.append(self.round_engine.dealer_hand.upcard)
+            self.provider.observe_cards(visible_cards)
+
         return state
 
     async def play_turn(self, session_id: str = "", round_number: int = 1) -> AgentDecision | None:
@@ -139,6 +169,22 @@ class EntityTable:
                     f"Agent '{self.entity_id}' produced illegal action '{decision.action.value}'. "
                     f"Legal actions: {[a.value for a in legal_actions]}."
                 )
+
+            # Positional Decision Comparison Oracle Evaluation (FR-009)
+            comparison = self.comparator.evaluate_turn_decision(context, decision.action)
+            self.last_comparison = comparison
+            if comparison.is_optimal:
+                self.optimal_decisions += 1
+            else:
+                self.suboptimal_decisions += 1
+
+            # Embed comparison in decision metadata for telemetry streaming
+            decision.metadata["comparison"] = {
+                "is_optimal": comparison.is_optimal,
+                "optimal_action": comparison.optimal_action.value,
+                "category": comparison.category.value,
+                "reasoning": comparison.reasoning,
+            }
 
             self.round_engine.submit_action(decision.action)
             self.last_decision = decision

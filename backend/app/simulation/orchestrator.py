@@ -193,17 +193,18 @@ class SimulationOrchestrator(OrchestratorController):
                 )
 
                 if decision is not None:
-                    await self._emit(
-                        EventType.DECISION_APPLIED,
-                        {
-                            "entity_id": table.entity_id,
-                            "round_number": self._current_round,
-                            "action": decision.action.value,
-                            "confidence": decision.confidence,
-                            "latency_ms": decision.latency_ms,
-                            "reasoning": decision.reasoning,
-                        },
-                    )
+                    payload = {
+                        "entity_id": table.entity_id,
+                        "round_number": self._current_round,
+                        "action": decision.action.value,
+                        "confidence": decision.confidence,
+                        "latency_ms": decision.latency_ms,
+                        "reasoning": decision.reasoning,
+                    }
+                    if "comparison" in decision.metadata:
+                        payload["comparison"] = decision.metadata["comparison"]
+
+                    await self._emit(EventType.DECISION_APPLIED, payload)
 
                 if self._single_turn_step:
                     self._single_turn_step = False
@@ -268,7 +269,7 @@ class SimulationOrchestrator(OrchestratorController):
             # Start round for all active tables
             min_bet = self.config.table_rules.min_bet
             for table in active_tables:
-                table.start_round(min_bet)
+                table.start_round()
                 await self._emit(
                     EventType.CARD_DEALT,
                     {

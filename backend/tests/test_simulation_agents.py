@@ -69,16 +69,27 @@ def test_basic_strategy_splitting_and_doubling():
     async def _test():
         agent = BasicStrategyAgent()
 
-        # 8,8 vs dealer 10 -> SPLIT
+        # 8,8 vs dealer 9 -> SPLIT (Y)
         c_split = _make_context(
             player_cards=[Card(Suit.HEARTS, Rank.EIGHT), Card(Suit.SPADES, Rank.EIGHT)],
-            dealer_upcard=Card(Suit.CLUBS, Rank.TEN),
+            dealer_upcard=Card(Suit.CLUBS, Rank.NINE),
             legal_actions=[Action.HIT, Action.STAND, Action.SPLIT],
             player_total=16,
             is_soft=False,
         )
         dec = await agent.get_decision(c_split)
         assert dec.action == Action.SPLIT
+
+        # 8,8 vs dealer 10 -> NO SPLIT (N in docs/Estrategia Optima.md), hard 16 vs 10 -> HIT
+        c_no_split = _make_context(
+            player_cards=[Card(Suit.HEARTS, Rank.EIGHT), Card(Suit.SPADES, Rank.EIGHT)],
+            dealer_upcard=Card(Suit.CLUBS, Rank.TEN),
+            legal_actions=[Action.HIT, Action.STAND, Action.SPLIT],
+            player_total=16,
+            is_soft=False,
+        )
+        dec_no_split = await agent.get_decision(c_no_split)
+        assert dec_no_split.action == Action.HIT
 
         # Hard 11 vs dealer 6 -> DOUBLE
         c_double = _make_context(

@@ -5,7 +5,7 @@
 ### Acciones
 
 | Símbolo | Acción                                                                              |
-|:--------|:------------------------------------------------------------------------------------|
+| :------ | :---------------------------------------------------------------------------------- |
 | `H`     | Hit — pedir carta                                                                   |
 | `S`     | Stand — plantarse                                                                   |
 | `D`     | Double — doblar si está permitido; de lo contrario, hit                             |
@@ -16,6 +16,7 @@
 | `SUR`   | Surrender — rendirse                                                                |
 
 ---
+
 # 2. Hard Totals
 
 **Dealer Upcard**
@@ -33,7 +34,7 @@
 | 9    | H   | D   | D   | D   | D   | H   | H   | H   | H   | H   |
 | 8    | H   | H   | H   | H   | H   | H   | H   | H   | H   | H   |
 
-------------------------------------------------------------------------
+---
 
 # 3. Soft Totals
 
@@ -50,7 +51,8 @@
 | A,3  | H   | H   | H   | D   | D   | H   | H   | H   | H   | H   |
 | A,2  | H   | H   | H   | D   | D   | H   | H   | H   | H   | H   |
 
-------------------------------------------------------------------------
+---
+
 # 4. Pair Splitting
 
 **Dealer Upcard**
@@ -75,9 +77,9 @@
 > **Dividir si se permite Double After Split (DAS); de lo contrario, no
 > dividir.**
 
-------------------------------------------------------------------------
+---
 
-# 5.  Surrender
+# 5. Surrender
 
 **Dealer Upcard**
 
@@ -89,7 +91,7 @@ La tabla de estrategia básica mostrada en la primera imagen indica:
 | 15   | —   | —   | —   | —   | —   | —   | —   | —   | SUR | —   |
 | 14   | —   | —   | —   | —   | —   | —   | —   | —   | —   | —   |
 
-------------------------------------------------------------------------
+---
 
 # 6. Insurance / Even Money
 
@@ -100,15 +102,16 @@ La tabla indica explícitamente:
 Esto significa que **no se toma Insurance como parte de la
 estrategia básica**.
 
-------------------------------------------------------------------------
+---
 
 # 7. Bet Spread
 
 La estrategia óptima debe hacer su apuesta basándose en el valor de la True Count y la cantidad de la apuesta mínima.
 Cuando la True Count es $\leq$ 0 entonces la estrategia óptima decide apostar la cantidad mínima de la mesa. En caso de que la True Count sea positiva, la estrategia óptima hace $n$ veces la apuesta mínima de la mesa.
-Por ejemplo, en un bet spread de 1 - 12 y una apuesta mínima de $50, si la True Count es de 2 entonces la estrategia óptima debe apostar $\$50 * 2 = \$100$.
+Por ejemplo, en un bet spread de 1 - 12 y una apuesta mínima de $\$50$, si la True Count es de 2 entonces la estrategia óptima debe apostar $\$50 * 2 = \$100$.
 
 ---
+
 # 8. Prioridad de decisiones
 
 Cuando se implementa esta estrategia en software, conviene considerar
@@ -134,5 +137,4 @@ las decisiones en este orden:
 Esto permite separar claramente la **estrategia básica** de las
 **decisiones dependientes del conteo**.
 
-------------------------------------------------------------------------
-
+---

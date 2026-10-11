@@ -198,3 +198,48 @@ Total Codebase   : 76 passed, 0 failed (100% Pass Rate)
 - [`docs/session_logs.md`](session_logs.md): This log entry.
 - [`specs/002-simulation-orchestrator/`](../specs/002-simulation-orchestrator/): Full Spec-Kit artifacts (`spec.md`, `plan.md`, `tasks.md`, `data-model.md`, `research.md`, `quickstart.md`, `contracts/orchestrator_api.md`, `checklists/requirements.md`).
 
+---
+
+## Session: 2026-10-11
+
+**Focus**: Basic Strategy Player, Hi-Lo Bet Sizing, and Positional Comparison Oracle  
+**Branch**: `main` (Feature directory: `specs/003-basic-strategy-player/`)  
+**Status**: Completed & Verified (100% Test Pass Rate, 22 test modules, 0 failures)
+
+---
+
+### 1. Executive Summary
+
+Today's session designed, implemented, and verified the **Full Blackjack Basic Strategy Player** and the **Decision Comparison Oracle** residing in `backend/app/models/`. Following the Spec-Kit methodology (`specify` → `clarify` → `plan` → `tasks` → `implement`), the player strictly encodes the mathematical decision matrices from `docs/Estrategia Optima.md` with zero guessing or heuristics.
+
+In addition to playing autonomously at its own table, the system provides a standalone evaluation oracle (`DecisionComparator`) that evaluates other players (such as Jev and Laya) in their specific table context. Even when tables hold completely different cards (e.g., Basic Strategy plays 12 vs 5 while Jev plays 15 vs 2), the oracle benchmarks Jev's move against what Basic Strategy dictates for 15 vs 2, as well as benchmarking opening bets against the Hi-Lo True Count bet spread.
+
+The mockup agent in `backend/app/simulation/agents/basic_strategy.py` was replaced with this complete player, maintaining 100% backward compatibility and zero test regressions.
+
+---
+
+### 2. Implemented Architecture (`backend/app/models/`)
+
+| Module | Core Responsibility |
+| :--- | :--- |
+| [`strategy_matrices.py`](../backend/app/models/strategy_matrices.py) | 100% matrix representation of Hard Totals (8–17+ vs 2–A), Soft Totals (A,2–A,9 vs 2–A with `Ds` double-else-stand fallback), Pair Splitting with DAS `Y/N` resolution, Surrender rules, and insurance rejection. |
+| [`card_counter.py`](../backend/app/models/card_counter.py) | `HiLoCardCounter` tracking running count (+1, 0, -1), half-deck resolution deck estimation, True Count calculation, and count reset triggers. |
+| [`schemas.py`](../backend/app/models/schemas.py) | Evaluation domain models: `DecisionCategory`, `DecisionComparison`, `BetComparison`, `BetSpreadConfig`. |
+| [`decision_comparator.py`](../backend/app/models/decision_comparator.py) | Positional `DecisionComparator` oracle evaluating any agent's decision (`evaluate_turn_decision`) and bet spread sizing (`evaluate_round_bet`). |
+| [`basic_strategy_player.py`](../backend/app/models/basic_strategy_player.py) | Concrete `BasicStrategyPlayer` conforming to `DecisionProvider`, supporting `get_bet()`, `reset_count()`, and card observation. |
+| [`simulation/table.py`](../backend/app/simulation/table.py) | Updated `EntityTable` integrating inline turn evaluations, tracking `optimal_decisions` vs `suboptimal_decisions`, and calling `provider.get_bet()` and `reset_count()`. |
+| [`simulation/orchestrator.py`](../backend/app/simulation/orchestrator.py) | Updated orchestrator embedding `comparison` metadata inside `DECISION_APPLIED` event payloads. |
+| [`simulation/agents/basic_strategy.py`](../backend/app/simulation/agents/basic_strategy.py) | Re-exports `BasicStrategyPlayer` as `BasicStrategyAgent` for seamless backward compatibility. |
+
+---
+
+### 3. Verification & Testing
+
+- **Strategy Matrices Tests** (`test_strategy_matrices.py`): 100% cell verification across Hard, Soft, Pair splitting, Surrender, and DAS fallback rules.
+- **Card Counter Tests** (`test_card_counter.py`): Running count, True Count scaling, and reset lifecycle.
+- **Basic Strategy Player Tests** (`test_basic_strategy_player.py`): Decision correctness and insurance rejection.
+- **Bet Sizing Tests** (`test_basic_strategy_betting.py`): True Count spread scaling ($1 \times \text{min\_bet}$ when $TC \le 0$, $N \times \text{min\_bet}$ when $TC > 0$, max spread cap, bankroll safety).
+- **Decision Comparator Tests** (`test_decision_comparator.py`): Positional turn benchmarking and bet delta evaluation.
+- **Quickstart Scenarios** (`test_basic_strategy_quickstart.py`): End-to-end verification of all scenarios in `quickstart.md`.
+- **Regression Suite**: All 22 test modules across the engine and simulation packages passed with 100% pass rate.
+
