@@ -243,3 +243,54 @@ The mockup agent in `backend/app/simulation/agents/basic_strategy.py` was replac
 - **Quickstart Scenarios** (`test_basic_strategy_quickstart.py`): End-to-end verification of all scenarios in `quickstart.md`.
 - **Regression Suite**: All 22 test modules across the engine and simulation packages passed with 100% pass rate.
 
+---
+
+## Session: 2026-10-11 (Part 2)
+
+**Focus**: Database Schema, SQLAlchemy 2.0 AsyncIO ORM, Orchestrator Telemetry Persistence Listener, Replay Repository, and Run Exporter  
+**Branch**: `main` (Feature directory: `specs/004-database-persistence/`)  
+**Status**: Completed & Verified (100% Test Pass Rate, 118/118 tests passed, 0 failures, Ruff checks clean)
+
+---
+
+### 1. Executive Summary
+
+Today's session designed, implemented, and verified the complete **Database Schema & Simulation Telemetry Persistence Layer** residing in `backend/app/persistence/`. Built to persist all simulation executions from the multi-agent orchestrator, the relational schema models all 15 domain entities defined in `docs/Diseño Base de Datos (Modelo ER).md`.
+
+The persistence layer runs against the dedicated PostgreSQL 16 Alpine container (`app_db`) via SQLAlchemy 2.0 AsyncIO and `asyncpg`. It operates strictly as an asynchronous telemetry sink and persistent record store, decoupled from the core deterministic blackjack engine (satisfying Constitution Principles I & V).
+
+Key capabilities delivered:
+1. **15-Entity Relational Schema**: 18 PostgreSQL ENUMs, UUID primary keys, composite uniqueness constraints (`UNIQUE (simulation_id, player_type)`, `UNIQUE (round_id, player_session_id)`, etc.), and complete `ON DELETE CASCADE` across all child entities.
+2. **Real-Time Asynchronous Telemetry Listener**: `SimulationPersistenceListener` attaches to orchestrator `EventEmitter`, translating stream events into relational entities (`CardEvent`, `Decision` with `optimal_reference_action` & `agrees_with_optimal`, `ModelResponse`, `Bet`, and `BankrollTransaction`) without blocking engine execution.
+3. **Atomic Round-Boundary Batch Flushing**: In-memory event buffering committing at round boundaries or in configurable batches of $N$ rounds, safeguarding against partial state on simulation pause or abort.
+4. **Historical Replay & Analytical Repository**: `RunRepository` providing full chronological round replay timelines (`get_round_replay`), dynamic player benchmark calculations (`get_player_benchmark_summary` computing win rates, ROI, and basic strategy agreement percentage without stale columns), and clean cascade deletion.
+5. **Run Archival JSON Exporter**: `RunExporter` serializing complete runs into structured artifacts at `/data/runs/[timestamp]/run_data.json`.
+
+---
+
+### 2. Implemented Architecture (`backend/app/persistence/`)
+
+| Module | Core Responsibility |
+| :--- | :--- |
+| [`database.py`](../backend/app/persistence/database.py) | Singleton async SQLAlchemy 2.0 engine, async sessionmaker factory, connection pooling with pre-ping, `check_db_health()`, and `init_db()` auto-provisioning. |
+| [`models.py`](../backend/app/persistence/models.py) | All 18 PostgreSQL ENUMs and 15 ORM domain models across 6 domains (Execution, Participants, Shoes, Game Flow, Decisions/AI, Economy) with `TIMESTAMPTZ` and `ON DELETE CASCADE`. |
+| [`listener.py`](../backend/app/persistence/listener.py) | `SimulationPersistenceListener` subscribing to orchestrator `EventEmitter`, buffering round events and performing atomic batch commits with error-state capture. |
+| [`repositories.py`](../backend/app/persistence/repositories.py) | `RunRepository` providing run CRUD, cascading hard deletions, chronological round replay timeline queries, and dynamic benchmark metrics calculations. |
+| [`exporter.py`](../backend/app/persistence/exporter.py) | `RunExporter` with `EntityJSONEncoder` serializing complete 15-entity hierarchies into self-contained `run_data.json` artifacts. |
+| [`migrations/init_schema.sql`](../backend/app/persistence/migrations/init_schema.sql) | Standalone idempotent DDL migration script with all 18 ENUMs, 15 tables, 12 query indexes, and foreign keys. |
+| [`__init__.py`](../backend/app/persistence/__init__.py) | Package public API exports. |
+
+---
+
+### 3. Verification & Testing
+
+All 24 tasks (T001–T024) defined in [`tasks.md`](../specs/004-database-persistence/tasks.md) were executed and verified against the PostgreSQL container:
+
+- **[`test_persistence_schema.py`](../backend/tests/test_persistence_schema.py)** (4 tests): Table creation, composite unique constraints, check constraints, foreign key cascades, and eager loaded relationship queries.
+- **[`test_persistence_listener.py`](../backend/tests/test_persistence_listener.py)** (4 tests): Attach/detach lifecycle, synthetic round event translation, AI telemetry capture (`optimal_reference_action`, `agrees_with_optimal`, `ModelResponse`), live orchestrator execution, and error recovery.
+- **[`test_persistence_exporter.py`](../backend/tests/test_persistence_exporter.py)** (1 test): Complete 15-entity JSON export matching run structure.
+- **[`test_persistence_repository.py`](../backend/tests/test_persistence_repository.py)** (3 tests): Run CRUD, chronological round replay timeline ordering, and dynamic benchmark calculation.
+- **[`test_persistence_quickstart.py`](../backend/tests/test_persistence_quickstart.py)** (2 tests): End-to-end execution of all 5 quickstart scenarios.
+- **Full Project Test Suite**: 118/118 passed in 1.69s across engine, simulation, models, and persistence.
+- **Static Analysis & Linting**: `ruff check` passed with zero errors across `app/persistence` and all persistence test suites.
+
