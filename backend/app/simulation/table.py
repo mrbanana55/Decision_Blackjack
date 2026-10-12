@@ -1,5 +1,6 @@
 """Isolated entity table managing a single DecisionProvider, BlackjackRound, and metrics."""
 
+import asyncio
 from app.engine.round import BlackjackRound, RoundState
 from app.engine.rules import TableRules
 from app.engine.settlement import RoundSettlement
@@ -98,6 +99,39 @@ class EntityTable:
         if hasattr(self.provider, "reset_count"):
             self.provider.reset_count()
 
+    async def prepare_round(self, bet: float | None = None, round_number: int = 1) -> float:
+        """Resolve opening bet for round, awaiting provider if asynchronous."""
+        if bet is not None:
+            return bet
+        if hasattr(self.provider, "get_bet"):
+            cards_seen = getattr(self.round_engine.shoe, "cards_dealt_count", 0)
+            total_cards = getattr(self.round_engine.shoe, "num_decks", 6) * 52
+            true_count = getattr(self.provider, "true_count", 0.0) if hasattr(self.provider, "true_count") else 0.0
+            try:
+                res = self.provider.get_bet(
+                    bankroll=self.current_bankroll,
+                    min_bet=self.rules.min_bet,
+                    true_count=true_count,
+                    cards_seen=cards_seen,
+                    total_cards=total_cards,
+                    round_number=round_number,
+                )
+            except TypeError:
+                res = self.provider.get_bet(
+                    bankroll=self.current_bankroll,
+                    min_bet=self.rules.min_bet,
+                )
+            if asyncio.iscoroutine(res):
+                return await res
+            return float(res)
+        return self.rules.min_bet
+
+    async def start_round_async(self, bet: float | None = None, round_number: int = 1) -> RoundState:
+        """Asynchronously initiate round, resolving opening bet from async or sync provider."""
+        if bet is None:
+            bet = await self.prepare_round(bet, round_number=round_number)
+        return self.start_round(bet=bet)
+
     def start_round(self, bet: float | None = None) -> RoundState:
         """Initiate round with table bet if entity has sufficient funds."""
         if self.is_eliminated:
@@ -109,10 +143,18 @@ class EntityTable:
         # Query provider.get_bet() if bet is not explicitly supplied (FR-008)
         if bet is None:
             if hasattr(self.provider, "get_bet"):
-                bet = self.provider.get_bet(
-                    bankroll=self.current_bankroll,
-                    min_bet=self.rules.min_bet,
-                )
+                try:
+                    res = self.provider.get_bet(
+                        bankroll=self.current_bankroll,
+                        min_bet=self.rules.min_bet,
+                    )
+                except TypeError:
+                    res = self.rules.min_bet
+                if asyncio.iscoroutine(res):
+                    res.close()
+                    bet = self.rules.min_bet
+                else:
+                    bet = float(res)
             else:
                 bet = self.rules.min_bet
 
@@ -134,8 +176,36 @@ class EntityTable:
 
         # Insurance decision handling
         if self.round_engine.phase == RoundPhase.INSURANCE_OFFERED:
-            # Basic / standard agents decline insurance
-            self.round_engine.submit_insurance(accept=False)
+            accepted = False
+            if hasattr(self.provider, "get_insurance"):
+                active_index = self.round_engine.active_hand_index
+                if active_index < len(self.round_engine.player_hands):
+                    hand = self.round_engine.player_hands[active_index]
+                    dealer_upcard = self.round_engine.dealer_hand.upcard
+                    true_count = getattr(self.provider, "true_count", 0.0) if hasattr(self.provider, "true_count") else 0.0
+                    context = DecisionContext(
+                        session_id=session_id,
+                        round_number=round_number,
+                        hand_index=active_index,
+                        player_cards=list(hand.cards),
+                        player_total=hand.total,
+                        is_soft=hand.is_soft,
+                        dealer_upcard=dealer_upcard,
+                        legal_actions=[],
+                        can_insure=True,
+                        true_count=true_count,
+                    )
+                    insurance_cost = round(hand.bet * 0.5, 2)
+                    if insurance_cost <= self.current_bankroll:
+                        try:
+                            res = self.provider.get_insurance(context, insurance_cost)
+                            if asyncio.iscoroutine(res):
+                                accepted = await res
+                            else:
+                                accepted = bool(res)
+                        except Exception:
+                            accepted = False
+            self.round_engine.submit_insurance(accept=accepted)
             return None
 
         # Player turn decision handling
@@ -224,13 +294,15 @@ class EntityTable:
 
         return settlement
 
-    async def step_round_to_completion(self, bet: float, session_id: str = "", round_number: int = 1) -> RoundSettlement:
+    async def step_round_to_completion(self, bet: float | None = None, session_id: str = "", round_number: int = 1) -> RoundSettlement:
         """Run an entire round from start to settlement sequentially on this table."""
+        if bet is None:
+            bet = await self.prepare_round(bet, round_number=round_number)
         self.start_round(bet)
 
         while self.round_engine.phase not in (RoundPhase.ROUND_COMPLETE, RoundPhase.AWAITING_BET):
             if self.round_engine.phase == RoundPhase.INSURANCE_OFFERED:
-                self.round_engine.submit_insurance(accept=False)
+                await self.play_turn(session_id=session_id, round_number=round_number)
             elif self.round_engine.phase == RoundPhase.PLAYER_TURNS:
                 await self.play_turn(session_id=session_id, round_number=round_number)
             elif self.round_engine.phase == RoundPhase.DEALER_TURN:

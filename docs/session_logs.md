@@ -294,3 +294,53 @@ All 24 tasks (T001–T024) defined in [`tasks.md`](../specs/004-database-persist
 - **Full Project Test Suite**: 118/118 passed in 1.69s across engine, simulation, models, and persistence.
 - **Static Analysis & Linting**: `ruff check` passed with zero errors across `app/persistence` and all persistence test suites.
 
+---
+
+## Session: 2026-10-11
+
+**Focus**: Local Laya Deep Learning Model Integration, Docker Host-Bridge Connectivity, TypeSafe System One Dynamic Schemas, Multi-Phase Game Decisions, and Fault Resilience  
+**Branch**: `main` (Feature directory: `specs/005-laya-agent-integration/`)  
+**Status**: Completed & Verified (100% Test Pass Rate, 153/153 tests passed, 30 new Laya tests, Ruff checks clean)
+
+---
+
+### 1. Executive Summary
+
+Today's session designed, implemented, and verified the complete **Laya Decision Agent Integration & Container Host Bridge** residing in `backend/app/integrations/laya/`. This integration connects the blackjack simulation engine running inside a Docker container (`app_backend`) with the user's host-native Laya deep learning inference service (`http://127.0.0.1:1234` or custom port via `LAYA_BASE_URL` in `.env`).
+
+The integration strictly adheres to the TypeSafe System One JSON protocol defined in `docs/Laya_Example_Body.md` and fulfills Constitution Principles I, II, III, and V:
+- **Clean Decoupling**: All Laya transport and inference code resides isolated in `backend/app/integrations/laya/`.
+- **Dynamic Host Bridging**: Seamless container-to-host routing via `extra_hosts: ["host.docker.internal:host-gateway"]` in `docker-compose.yml` and automatic URL normalization inside `LayaConfig`.
+- **Dynamic Situational Schemas**: `LayaSchemaBuilder` constructs context-aware natural language game state and filters choice options strictly to legal actions across all 7 situational contracts (1A Paired No Surrender, 1B Paired Surrender, 2A Standard No Surrender, 2B Standard Surrender, 3 Multi-Card Draw, 4 Insurance Offer, 5 Discrete Bet Sizing).
+- **Multi-Phase Autonomy**: `LayaAgent` participates in pre-deal round wagering (`1x`, `2x`, `4x`, `8x` of dynamic table minimum bet), insurance side bets, and all in-hand tactical decisions (Hit, Stand, Double, Split, Surrender).
+- **Fault Resilience & Pause Compliance (RNF-02)**: On host disconnects, server timeouts, or malformed payloads, errors translate to `AgentFaultError`, pausing all active tables synchronously (`PAUSED_ERROR`) without data loss, and allowing clean resume once connectivity is restored.
+
+---
+
+### 2. Implemented Architecture (`backend/app/integrations/laya/`)
+
+| Module | Core Responsibility |
+| :--- | :--- |
+| [`config.py`](../backend/app/integrations/laya/config.py) | `LayaConfig` reading `LAYA_BASE_URL` from `.env`, bounded timeouts/retries, and automatic container normalization (`127.0.0.1`/`localhost` $\to$ `host.docker.internal`). |
+| [`schemas.py`](../backend/app/integrations/laya/schemas.py) | TypeSafe System One Pydantic v2 transport models (`QuestionType`, `ChoiceQuestion`, `SystemOneRequest`, `ChoiceAnswer`, `SystemOneResponse`, `LayaHealthStatus`, `HandSituationType`). |
+| [`client.py`](../backend/app/integrations/laya/client.py) | Async HTTP client (`httpx.AsyncClient`) supporting `GET /health` and `POST /v1/systemone` with high-precision latency timing and `AgentFaultError` error translation. |
+| [`builder.py`](../backend/app/integrations/laya/builder.py) | `LayaSchemaBuilder` detecting tactical hand situations and dynamically assembling prompts and criteria adhering to table rules and legal actions. |
+| [`agent.py`](../backend/app/integrations/laya/agent.py) | `LayaAgent` satisfying `DecisionProvider` protocol (`name="Laya"`, `entity_type=EntityType.LAYA`, `get_decision()`, `get_bet()`, `get_insurance()`). |
+| [`__init__.py`](../backend/app/integrations/laya/__init__.py) | Package public API exports. |
+
+---
+
+### 3. Verification & Testing
+
+All 24 tasks (T001–T024) across 7 phases were executed and verified against Docker container tests:
+
+- **[`test_laya_config.py`](../backend/tests/test_laya_config.py)** (7 tests): Default configurations, `.env` port overrides, Docker environment detection, and host URL normalization.
+- **[`test_laya_client.py`](../backend/tests/test_laya_client.py)** (6 tests): Health probe `/health` parsing, system one requests, network timeout and connection error translation to `AgentFaultError`.
+- **[`test_laya_schemas.py`](../backend/tests/test_laya_schemas.py)** (8 tests): Situational schemas for Contracts 1A, 1B, 2A, 2B, 3, 4 (Insurance), and 5 (Betting with dynamic `min_bet`).
+- **[`test_laya_agent.py`](../backend/tests/test_laya_agent.py)** (6 tests): `get_decision()` across all blackjack actions, `get_bet()` discrete multipliers, `get_insurance()` choices, and telemetry metadata packaging.
+- **[`test_laya_simulation.py`](../backend/tests/test_laya_simulation.py)** (3 tests): Full orchestrator multi-agent simulation verifying `PAUSED_ERROR` on fault, table bankroll preservation, resume execution, and `DecisionComparator` evaluation.
+- **[`test_health.py`](../backend/tests/test_health.py)** (3 tests): `/health` and `/health/laya` API diagnostic endpoints.
+- **Full Project Test Suite**: 153/153 passed in 2.13s across engine, simulation, persistence, and Laya integration.
+- **Static Analysis & Linting**: `ruff check` passed with zero errors across all Laya modules and test suites.
+
+

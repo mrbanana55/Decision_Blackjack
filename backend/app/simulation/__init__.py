@@ -41,6 +41,7 @@ __all__ = [
     "FakeJevAgent",
     "FakeLayaAgent",
     "IllegalAgentActionError",
+    "LayaAgent",
     "OrchestratorController",
     "SessionStatus",
     "ShoePool",
@@ -55,6 +56,9 @@ __all__ = [
 
 
 def __getattr__(name: str):
+    if name == "LayaAgent":
+        from app.integrations.laya import LayaAgent
+        return LayaAgent
     if name in ("BasicStrategyAgent", "FakeJevAgent", "FakeLayaAgent"):
         import app.simulation.agents as agents_mod
         return getattr(agents_mod, name)

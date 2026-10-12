@@ -9,6 +9,7 @@ from app.simulation.agents.basic_strategy import BasicStrategyAgent
 from app.simulation.agents.fake_agents import FakeJevAgent
 from app.simulation.interfaces import IllegalAgentActionError
 from app.simulation.table import EntityTable
+from app.simulation.types import EntityType
 
 
 def test_table_initialization_and_metrics():
@@ -113,6 +114,58 @@ def test_bankruptcy_elimination():
         await table.step_round_to_completion(bet=100.0)
         assert table.current_bankroll == 0.0
         assert table.is_eliminated
+
+    asyncio.run(_test())
+
+
+def test_entity_table_async_get_bet():
+    """Verify EntityTable awaits async get_bet from provider during start_round_async."""
+    from unittest.mock import AsyncMock
+    mock_provider = AsyncMock()
+    mock_provider.entity_type = EntityType.LAYA
+    mock_provider.get_bet = AsyncMock(return_value=150.0)
+    del mock_provider.observe_cards
+    del mock_provider.reset_count
+
+    table = EntityTable(entity_id="laya", provider=mock_provider, initial_bankroll=1000.0)
+
+    async def _test():
+        await table.start_round_async()
+        assert table.round_engine.player_hands[0].bet == 150.0
+        assert table.current_bankroll == 850.0
+        assert mock_provider.get_bet.await_count == 1
+
+    asyncio.run(_test())
+
+
+def test_entity_table_insurance_flow():
+    """Verify EntityTable queries get_insurance when dealer shows Ace."""
+    from unittest.mock import AsyncMock
+    mock_provider = AsyncMock()
+    mock_provider.entity_type = EntityType.LAYA
+    mock_provider.get_insurance = AsyncMock(return_value=True)
+    del mock_provider.observe_cards
+    del mock_provider.reset_count
+
+    # Dealer upcard Ace triggers INSURANCE_OFFERED
+    injected = [
+        Card(Suit.HEARTS, Rank.TEN),   # Player 1
+        Card(Suit.SPADES, Rank.ACE),   # Dealer upcard (Ace!)
+        Card(Suit.HEARTS, Rank.EIGHT), # Player 2
+        Card(Suit.SPADES, Rank.NINE),  # Dealer hole card (no blackjack)
+    ]
+    shoe = Shoe(num_decks=1, card_sequence=injected)
+    table = EntityTable(entity_id="laya", provider=mock_provider, shoe=shoe, initial_bankroll=1000.0)
+
+    async def _test():
+        table.start_round(bet=100.0)
+        assert table.phase == RoundPhase.INSURANCE_OFFERED
+
+        # Play turn during insurance phase queries provider.get_insurance
+        await table.play_turn()
+        assert mock_provider.get_insurance.await_count == 1
+        assert table.round_engine.insurance_bet == 50.0
+        assert table.round_engine.current_bankroll == 850.0  # 1000 - 100 bet - 50 insurance
 
     asyncio.run(_test())
 

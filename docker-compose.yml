@@ -36,6 +36,9 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DATA_DIR: /app/data/runs
+      LAYA_BASE_URL: ${LAYA_BASE_URL:-http://host.docker.internal:1234}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env
     volumes:

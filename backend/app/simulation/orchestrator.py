@@ -201,6 +201,14 @@ class SimulationOrchestrator(OrchestratorController):
                         "latency_ms": decision.latency_ms,
                         "reasoning": decision.reasoning,
                     }
+                    if decision.metadata:
+                        payload["metadata"] = decision.metadata
+                        if "model" in decision.metadata:
+                            payload["model_name"] = decision.metadata["model"]
+                        if "provider" in decision.metadata:
+                            payload["model_provider"] = decision.metadata["provider"]
+                        if "response_payload" in decision.metadata:
+                            payload["response_payload"] = decision.metadata["response_payload"]
                     if "comparison" in decision.metadata:
                         payload["comparison"] = decision.metadata["comparison"]
 
@@ -269,7 +277,10 @@ class SimulationOrchestrator(OrchestratorController):
             # Start round for all active tables
             min_bet = self.config.table_rules.min_bet
             for table in active_tables:
-                table.start_round()
+                if hasattr(table, "start_round_async"):
+                    await table.start_round_async(round_number=round_num)
+                else:
+                    table.start_round()
                 await self._emit(
                     EventType.CARD_DEALT,
                     {
@@ -396,8 +407,8 @@ class SimulationOrchestrator(OrchestratorController):
         await self._emit(EventType.SESSION_PAUSED, {"round": self._current_round})
 
     async def resume(self) -> None:
-        """Resume execution from a paused state."""
-        if self._status != SessionStatus.PAUSED:
+        """Resume execution from a paused or paused-error state."""
+        if self._status not in (SessionStatus.PAUSED, SessionStatus.PAUSED_ERROR):
             raise SimulationStateError(
                 f"Cannot resume simulation from status '{self._status.value}'."
             )
