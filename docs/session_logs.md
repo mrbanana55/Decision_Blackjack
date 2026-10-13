@@ -420,3 +420,98 @@ All 24 tasks (T001–T024) defined in `specs/006-jev-agent-integration/tasks.md`
   - Added tests `test_send_systemone_auth_error_403` and `test_send_systemone_missing_api_key` in [`backend/tests/test_jev_client.py`](../backend/tests/test_jev_client.py).
   - Verified 100% pass rate: 176 passed, 0 failed, 10 skipped.
 
+---
+
+## Session: 2026-10-13
+
+**Focus**: FastAPI REST & Native WebSockets API, Real-Time Basic Strategy Deviation Analytics, Interactive Simulation Flow Control, Streaming Hierarchical JSON Exports, and Cascading Database Purge  
+**Branch**: `main` (Feature directory: `specs/007-simulation-frontend-api/`)  
+**Status**: Completed & Verified (100% Test Pass Rate, 35/35 new API tests, 211/211 total backend tests passed, 0 failures)
+
+---
+
+### 1. Executive Summary
+
+Today's session designed, implemented, and verified the complete **Simulation Frontend API & Export Service** residing in `backend/app/api/`. Following the Spec-Kit methodology (`specify` → `clarify` → `plan` → `tasks` → `implement`), this feature bridges the web frontend client with the underlying blackjack simulation engine, persistence layer, and external AI agent providers (TypeSafe Jev, local Laya, and Optimal Basic Strategy).
+
+Key architectural and functional requirements implemented:
+1. **Configurable Experiment Provisioning (`POST /api/simulations`)**: Validates all house rules from `docs/Reglas de BlackJack.md` (S17/H17, 3:2 payout, American Peek vs ENHC, insurance, late/early/no surrender, DAS, RSA, max split hands, 1–8 decks, cut-card penetration, burn cards, bankrolls, and betting limits). Performs pre-flight health checks for Jev and Laya, provisioning isolated tables sharing identical starting shoes derived from a deterministic seed.
+2. **Native WebSocket Real-Time Telemetry (`/ws/simulations/{session_id}`)**: Streams live round telemetry over native FastAPI WebSockets (`fastapi.WebSocket` without third-party wrappers like socketio). Emits an immediate `SESSION_SNAPSHOT` on connection, starts orchestrator execution without dropped events, and broadcasts turn-by-turn frames (`DECISION_MADE` and `ROUND_SETTLED`).
+3. **Real-Time Strategy Deviation Analytics**: Enriches decision frames with full basic strategy comparison oracle metadata (`optimal_action`, `actual_action`, `category`, `is_optimal`, `reasoning`). Aggregates running deviation statistics segmented across Hard Totals, Soft Totals, Pair Splits, Surrenders, and Bet Spread deltas, streamed in `ROUND_SETTLED` frames and queryable via `GET /api/simulations/{session_id}/deviations`.
+4. **Interactive Flow Control & Fault Recovery**: Bidirectional command dispatching via WebSocket and REST fallback (`POST /api/simulations/{session_id}/control`): `pause`, `resume`, `step` (round/turn), `set_speed` (0 ms to 2,000 ms), `stop`, and RNF-02 `retry` on `PAUSED_ERROR`.
+5. **Historical Runs Catalog & Inspection**: `GET /api/simulations` paginated catalog querying past runs and active in-memory sessions; `GET /api/simulations/{session_id}` detailed run inspection with table rules snapshot and benchmarks.
+6. **Hierarchical JSON Exports**: `GET /api/export/simulations/{session_or_run_id}` serving single-run hierarchical JSON documents matching the `RunExporter` schema; `GET /api/export/database` streaming the full database archive sequentially to guarantee memory stays strictly below 256 MB.
+7. **Database Purge & Reset**: `DELETE /api/database` and `POST /api/database/clear` executing atomic `TRUNCATE TABLE ... CASCADE` across all 15 relational tables with safety guards rejecting execution with HTTP 409 Conflict if simulations are actively running.
+
+---
+
+### 2. Specification & Key Clarifications Resolved
+
+1. **Native WebSockets strictly (no socketio)**: All bidirectional streaming leverages native `fastapi.WebSocket` and `starlette.websockets` directly, minimizing transport overhead and container complexity.
+2. **Real-Time Strategy Deviation Metrics (`FR-023`, `FR-024`)**: Required aggregating turn-by-turn decisions and comparing them against the Basic Strategy oracle, computing live optimality rates, category breakdowns, and bet spread discrepancies.
+3. **Dual-Trigger Simulation Lifecycle**: Visualized simulations initialize in `status="INITIALIZING"`. Connecting to `/ws/simulations/{session_id}` emits `SESSION_SNAPSHOT` and triggers immediate execution so clients receive all events from round 1 without dropped frames. For headless or REST testing, `POST /api/simulations/{session_id}/start` serves as the explicit execution trigger.
+4. **Database Streaming Export (Memory Guard)**: `RunExporter.export_all_runs_streaming()` queries run IDs and streams individual run documents sequentially as JSON chunks, ensuring server memory remains strictly under 256 MB even for massive datasets.
+5. **Database Purge Conflict Guard**: Database truncation is blocked with HTTP 409 Conflict when any simulation session is `RUNNING`, `PAUSED`, or `PAUSED_ERROR`.
+
+---
+
+### 3. Architecture & Implemented Components (`backend/app/api/`)
+
+| Module | Core Responsibility |
+| :--- | :--- |
+| [`schemas.py`](../backend/app/api/schemas.py) | Pydantic v2 validation models (`TableRulesConfig`, `SimulationConfigRequest`, `SimulationResponse`, `SimulationListItem`, `SimulationListResponse`, `DecisionComparisonPayload`, `CategoryDeviationStats`, `BetSpreadDeviationStats`, `EntityDeviationStats`, `SimulationDeviationsResponse`, `PurgeDatabaseResponse`, `ControlCommandRequest`). |
+| [`manager.py`](../backend/app/api/manager.py) | `SimulationManager` handling in-memory session registry (`ActiveSessionRecord`), async background orchestrator loop, WebSocket connection registry, real-time deviation aggregation, and lifecycle control. |
+| [`simulations.py`](../backend/app/api/simulations.py) | REST endpoints for experiment provisioning (`POST /api/simulations`), explicit start (`POST /{id}/start`), paginated historical catalog (`GET /api/simulations`), detailed inspection (`GET /{id}`), deviation analytics (`GET /{id}/deviations`), and flow control (`POST /{id}/control`). |
+| [`websocket.py`](../backend/app/api/websocket.py) | Native WebSocket endpoint `/ws/simulations/{session_id}` handling client connections, snapshot emission, auto-start, telemetry broadcasting, and client command handling (`pause`, `resume`, `step`, `set_speed`, `stop`, `retry`). |
+| [`export.py`](../backend/app/api/export.py) | Data export endpoints (`GET /api/export/simulations/{session_or_run_id}` and `GET /api/export/database`) with `Content-Disposition` attachment headers and streamed responses. |
+| [`database.py`](../backend/app/api/database.py) | Maintenance endpoints (`DELETE /api/database`, `POST /api/database/clear`) executing atomic table purge with active simulation conflict guard. |
+| [`router.py`](../backend/app/api/router.py) | Consolidated API router mounting all sub-routers (`health`, `simulations`, `websocket`, `export`, `database`). |
+| [`main.py`](../backend/app/main.py) | Application entry point configuring CORS middleware for frontend origins, OpenAPI tags metadata, and mounting `api_router`. |
+| [`persistence/exporter.py`](../backend/app/persistence/exporter.py) | Extended `RunExporter` with `get_run_export_dict()` and `export_all_runs_streaming()` yielding JSON chunks incrementally. |
+| [`persistence/repositories.py`](../backend/app/persistence/repositories.py) | Extended `RunRepository` with `purge_all_tables()` executing atomic multi-table `TRUNCATE TABLE ... CASCADE` across all 15 relational tables with fallback. |
+
+---
+
+### 4. Verification & Testing
+
+All 35 tasks (T001–T035) defined in `specs/007-simulation-frontend-api/tasks.md` were executed and verified against automated test suites:
+
+- **[`test_api_schemas.py`](../backend/tests/test_api_schemas.py)** (6 tests): Valid configurations, default rules, boundary validations (e.g. `min_bet > max_bet`, penetration bounds), and deviation schemas.
+- **[`test_api_simulations.py`](../backend/tests/test_api_simulations.py)** (11 tests): Experiment provisioning (HTTP 201), rule validation failures (HTTP 422), identical shoe seeding, REST start trigger, historical runs listing with pagination, detailed inspection with DB fallback, deviations query, flow control commands, and RNF-02 fault recovery retry.
+- **[`test_api_websocket.py`](../backend/tests/test_api_websocket.py)** (3 tests): WebSocket handshake, 4404 close on non-existent session, live event broadcasting (`SESSION_SNAPSHOT`, `DECISION_MADE` with comparison, `ROUND_SETTLED` with running deviations), and interactive WebSocket flow control (`pause`, `set_speed`, `resume`).
+- **[`test_api_export.py`](../backend/tests/test_api_export.py)** (5 tests): Single-run JSON export (HTTP 200 with schema, HTTP 404 on missing run), active session ID resolution, attachment headers, and full database streaming archive.
+- **[`test_api_database.py`](../backend/tests/test_api_database.py)** (4 tests): Atomic purge via DELETE and POST alias, verification of 15 cleared tables, and active simulation conflict guard (HTTP 409).
+- **[`test_api_quickstart.py`](../backend/tests/test_api_quickstart.py)** (6 tests): End-to-end verification covering all 6 scenarios from `quickstart.md`.
+
+```text
+=== API Test Execution Summary ===
+tests.test_api_schemas    : 6 passed
+tests.test_api_simulations: 11 passed
+tests.test_api_websocket  : 3 passed
+tests.test_api_export     : 5 passed
+tests.test_api_database   : 4 passed
+tests.test_api_quickstart : 6 passed
+----------------------------------------
+API Tests        : 35 passed, 0 failed (100% Pass Rate)
+Pre-Existing     : 176 passed, 10 skipped (container DB)
+Total Codebase   : 211 passed, 10 skipped, 0 failed (100% Pass Rate)
+```
+
+---
+
+### 5. Technical Highlights & Critical Fixes
+
+1. **Async get_decision Coroutine Dispatch**: In `BasicStrategyPlayer`, `get_decision()` is an `async def` coroutine. When delegating decisions in mock and orchestrator adapters, calls must be explicitly awaited (`await self.delegate.get_decision(...)`), preventing unhandled coroutine warnings and premature `PAUSED_ERROR` halts.
+2. **Zero Dropped Events via Immediate Snapshot**: Connecting to `/ws/simulations/{session_id}` immediately delivers the complete `SESSION_SNAPSHOT` and begins round loop execution, guaranteeing clients never miss initial deals or decisions regardless of client startup timing.
+3. **Memory-Guarded Database Archival**: `RunExporter.export_all_runs_streaming()` streams historical runs sequentially as formatted JSON chunks, maintaining flat memory usage (< 256 MB) regardless of database volume.
+4. **Defensive Multi-Dialect Table Purge**: `RunRepository.purge_all_tables()` executes atomic PostgreSQL `TRUNCATE TABLE ... CASCADE` across all 15 tables with an automatic fallback for dialect differences during unit testing.
+
+---
+
+### 6. Documentation & Artifacts Delivered
+
+- [`specs/007-simulation-frontend-api/`](../specs/007-simulation-frontend-api/): Complete Spec-Kit artifacts (`spec.md`, `plan.md`, `tasks.md`, `data-model.md`, `quickstart.md`, `contracts/rest-api.yaml`, `contracts/websocket-protocol.md`, `checklists/requirements.md`).
+- [`api_implementation_walkthrough.md`](../api_implementation_walkthrough.md): Comprehensive implementation walkthrough artifact.
+- [`docs/session_logs.md`](session_logs.md): This log entry.
+
+

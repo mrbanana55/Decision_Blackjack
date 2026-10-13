@@ -10,7 +10,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -369,3 +369,38 @@ class RunRepository:
             })
 
         return summaries
+
+    async def purge_all_tables(self) -> list[str]:
+        """Atomically purge all 15 relational tables cascading foreign keys.
+
+        Returns:
+            List of table names cleared.
+        """
+        table_names = [
+            "runs",
+            "run_configurations",
+            "simulations",
+            "player_sessions",
+            "shoes",
+            "player_shoe_states",
+            "rounds",
+            "round_players",
+            "hands",
+            "card_events",
+            "decisions",
+            "model_responses",
+            "bets",
+            "hand_results",
+            "bankroll_transactions",
+        ]
+        try:
+            table_list = ", ".join(f'"{tbl}"' for tbl in table_names)
+            await self.session.execute(text(f"TRUNCATE TABLE {table_list} CASCADE;"))
+        except Exception:
+            # Fallback for dialects that do not support multi-table TRUNCATE CASCADE
+            for tbl in reversed(table_names):
+                await self.session.execute(text(f'DELETE FROM "{tbl}";'))
+
+        await self.session.commit()
+        return table_names
+

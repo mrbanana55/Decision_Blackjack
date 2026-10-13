@@ -56,15 +56,8 @@ class RunExporter:
         self.session = session
         self.base_dir = Path(base_dir)
 
-    async def export_run_to_json(self, run_id: uuid.UUID) -> Path:
-        """Serialize run, configurations, simulations, rounds, and metrics to JSON artifact.
-
-        Args:
-            run_id: UUID of the run to export.
-
-        Returns:
-            Path to the written run_data.json artifact.
-        """
+    async def get_run_export_dict(self, run_id: uuid.UUID) -> dict[str, Any]:
+        """Fetch and construct full hierarchical dictionary for a single run."""
         stmt = (
             select(Run)
             .options(
@@ -115,7 +108,22 @@ class RunExporter:
         if run is None:
             raise ValueError(f"Run '{run_id}' not found in database.")
 
-        payload = self._build_run_dict(run)
+        return self._build_run_dict(run)
+
+    async def export_run_to_json(self, run_id: uuid.UUID) -> Path:
+        """Serialize run, configurations, simulations, rounds, and metrics to JSON artifact.
+
+        Args:
+            run_id: UUID of the run to export.
+
+        Returns:
+            Path to the written run_data.json artifact.
+        """
+        payload = await self.get_run_export_dict(run_id)
+
+        # Retrieve run to update its directory
+        res = await self.session.execute(select(Run).where(Run.id == run_id))
+        run = res.scalar_one()
 
         # Directory formatting: [base_dir]/[timestamp]
         ts_str = run.created_at.strftime("%Y%m%d_%H%M%S") if run.created_at else datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -131,6 +139,27 @@ class RunExporter:
         await self.session.commit()
 
         return target_file
+
+    async def export_all_runs_streaming(self) -> AsyncGenerator[str, None]:
+        """Yield full database JSON archive as a chunked stream."""
+        stmt = select(Run.id).order_by(Run.created_at)
+        res = await self.session.execute(stmt)
+        run_ids = res.scalars().all()
+
+        yield '{\n  "archive_metadata": {\n'
+        yield f'    "exported_at": "{datetime.now(UTC).isoformat()}",\n'
+        yield f'    "total_runs": {len(run_ids)}\n'
+        yield '  },\n  "runs": [\n'
+
+        for idx, r_id in enumerate(run_ids):
+            run_dict = await self.get_run_export_dict(r_id)
+            serialized = json.dumps(run_dict, cls=EntityJSONEncoder, indent=2)
+            indented = "\n".join("    " + line for line in serialized.splitlines())
+            if idx > 0:
+                yield ",\n"
+            yield indented
+
+        yield "\n  ]\n}\n"
 
     def _build_run_dict(self, run: Run) -> dict[str, Any]:
         """Construct full relational dictionary for run."""

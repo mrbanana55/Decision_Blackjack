@@ -3,12 +3,36 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.health import router as health_router
+from app.api.router import api_router
+
+tags_metadata = [
+    {
+        "name": "Simulations",
+        "description": "Simulation provisioning, lifecycle, configuration, historical catalog, and interactive flow control.",
+    },
+    {
+        "name": "Analytics",
+        "description": "Real-time decision telemetry and Basic Strategy deviation analytics.",
+    },
+    {
+        "name": "Export",
+        "description": "Granular single-simulation and full-database hierarchical JSON data exports.",
+    },
+    {
+        "name": "Maintenance",
+        "description": "Database reset, atomic table truncation, and storage clearing operations.",
+    },
+    {
+        "name": "Health",
+        "description": "Health probes and external AI provider connectivity status.",
+    },
+]
 
 app = FastAPI(
     title="Decision_Blackjack API",
-    description="Multi-model simulation engine and telemetry API for Blackjack decision analysis",
+    description="Multi-model simulation engine and real-time telemetry API for Blackjack decision analysis comparing Jev, Laya, and Basic Strategy.",
     version="0.1.0",
+    openapi_tags=tags_metadata,
 )
 
 # Configure CORS to permit requests from the frontend client
@@ -18,14 +42,16 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
+        "http://frontend:5173",
+        "*",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register routers
-app.include_router(health_router)
+# Register consolidated API router
+app.include_router(api_router)
 
 
 @app.get("/")

@@ -1,0 +1,469 @@
+openapi: 3.1.0
+info:
+  title: Decision_Blackjack Simulation API
+  description: REST and WebSocket API orchestrating multi-agent Blackjack simulations, live telemetry streaming, and JSON persistence exports.
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:8000
+    description: Local Docker host endpoint
+  - url: http://backend:8000
+    description: Internal container network endpoint
+
+paths:
+  /api/simulations:
+    post:
+      summary: Initialize and configure a new simulation run
+      operationId: createSimulation
+      tags:
+        - Simulations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulationConfigRequest'
+      responses:
+        '201':
+          description: Simulation successfully provisioned and queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationResponse'
+        '422':
+          description: Validation error in table rules or unreachable requested entities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List historical simulation runs with pagination
+      operationId: listSimulations
+      tags:
+        - Simulations
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated simulation runs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationListResponse'
+
+  /api/simulations/{session_id}:
+    get:
+      summary: Retrieve current status and performance metrics for a simulation
+      operationId: getSimulation
+      tags:
+        - Simulations
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Simulation session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationResponse'
+        '404':
+          description: Simulation session not found
+
+  /api/simulations/{session_id}/deviations:
+    get:
+      summary: Retrieve real-time strategy deviation statistics for all active players
+      operationId: getSimulationDeviations
+      tags:
+        - Analytics
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Real-time strategy deviation analytics broken down by category and bet spread
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationDeviationsResponse'
+        '404':
+          description: Simulation session not found
+
+  /api/simulations/{session_id}/control:
+    post:
+      summary: Send flow control command via REST (fallback to WebSocket)
+      operationId: controlSimulation
+      tags:
+        - Simulations
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlCommandRequest'
+      responses:
+        '200':
+          description: Command accepted and applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id:
+                    type: string
+                  status:
+                    type: string
+                  command_applied:
+                    type: string
+        '400':
+          description: Invalid command or illegal state transition
+        '404':
+          description: Simulation session not found
+
+  /api/export/simulations/{session_or_run_id}:
+    get:
+      summary: Export a single simulation run as a hierarchical JSON file
+      operationId: exportSimulation
+      tags:
+        - Export
+      parameters:
+        - name: session_or_run_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Streamed hierarchical JSON artifact
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: attachment; filename="simulation_run_data.json"
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Run or simulation record not found
+
+  /api/export/database:
+    get:
+      summary: Export entire database archive as a comprehensive JSON file
+      operationId: exportDatabase
+      tags:
+        - Export
+      responses:
+        '200':
+          description: Streamed full database JSON archive
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: attachment; filename="decision_blackjack_full_export.json"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/database:
+    delete:
+      summary: Purge all records across all database tables (Reset Database)
+      operationId: purgeDatabase
+      tags:
+        - Maintenance
+      responses:
+        '200':
+          description: All tables successfully truncated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurgeDatabaseResponse'
+        '409':
+          description: Conflict - Cannot clear database while simulations are actively running
+
+components:
+  schemas:
+    TableRulesConfig:
+      type: object
+      properties:
+        soft_17_rule:
+          type: string
+          enum: [S17, H17]
+          default: S17
+        blackjack_payout:
+          type: number
+          default: 1.5
+        hole_card_rule:
+          type: string
+          enum: [AMERICAN_PEEK, EUROPEAN_NO_HOLE_CARD]
+          default: AMERICAN_PEEK
+        insurance_allowed:
+          type: boolean
+          default: true
+        surrender_rule:
+          type: string
+          enum: [LATE, EARLY, NO_SURRENDER]
+          default: LATE
+        double_after_split:
+          type: boolean
+          default: true
+        max_split_hands:
+          type: integer
+          minimum: 1
+          maximum: 4
+          default: 4
+        resplit_aces:
+          type: boolean
+          default: false
+        hit_split_aces:
+          type: boolean
+          default: false
+        num_decks:
+          type: integer
+          enum: [1, 2, 4, 6, 8]
+          default: 6
+        penetration:
+          type: number
+          minimum: 0.50
+          maximum: 0.85
+          default: 0.75
+        burn_cards_count:
+          type: integer
+          minimum: 0
+          maximum: 5
+          default: 0
+        initial_bankroll:
+          type: number
+          default: 1000.0
+        min_bet:
+          type: number
+          default: 10.0
+        max_bet:
+          type: number
+          default: 500.0
+        stop_on_all_bankrupt:
+          type: boolean
+          default: true
+
+    SimulationConfigRequest:
+      type: object
+      required:
+        - max_rounds
+      properties:
+        max_rounds:
+          type: integer
+          minimum: 1
+          maximum: 100000
+          default: 10
+        num_simulations:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 1
+        execution_mode:
+          type: string
+          enum: [visualized, fast_batch]
+          default: visualized
+        delay_ms:
+          type: number
+          minimum: 0.0
+          maximum: 2000.0
+          default: 300.0
+        seed:
+          type: integer
+          nullable: true
+        entities:
+          type: array
+          items:
+            type: string
+            enum: [optimal, jev, laya]
+          default: [optimal, jev, laya]
+        mock_mode:
+          type: boolean
+          default: false
+        table_rules:
+          $ref: '#/components/schemas/TableRulesConfig'
+
+    SimulationResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+        run_id:
+          type: string
+        status:
+          type: string
+        execution_mode:
+          type: string
+        current_round:
+          type: integer
+        max_rounds:
+          type: integer
+        num_simulations:
+          type: integer
+        entities:
+          type: array
+          items:
+            type: string
+        websocket_url:
+          type: string
+        created_at:
+          type: string
+        table_rules:
+          $ref: '#/components/schemas/TableRulesConfig'
+
+    ControlCommandRequest:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          type: string
+          enum: [pause, resume, step, retry, stop, set_speed]
+        level:
+          type: string
+          enum: [round, turn]
+        entity_id:
+          type: string
+        delay_ms:
+          type: number
+
+    SimulationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    PurgeDatabaseResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: cleared
+        tables_purged:
+          type: integer
+          example: 15
+        cleared_tables:
+          type: array
+          items:
+            type: string
+        timestamp:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+
+    CategoryDeviationStats:
+      type: object
+      properties:
+        total_decisions:
+          type: integer
+          default: 0
+        deviations:
+          type: integer
+          default: 0
+        optimality_rate:
+          type: number
+          default: 1.0
+
+    BetSpreadDeviationStats:
+      type: object
+      properties:
+        total_bets:
+          type: integer
+          default: 0
+        suboptimal_bets:
+          type: integer
+          default: 0
+        total_bet_delta:
+          type: number
+          default: 0.0
+        avg_bet_delta:
+          type: number
+          default: 0.0
+
+    EntityDeviationStats:
+      type: object
+      properties:
+        entity_id:
+          type: string
+        total_decisions:
+          type: integer
+        optimal_decisions:
+          type: integer
+        deviations_count:
+          type: integer
+        optimality_rate:
+          type: number
+        categories:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CategoryDeviationStats'
+        betting_deviations:
+          $ref: '#/components/schemas/BetSpreadDeviationStats'
+
+    SimulationDeviationsResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+        current_round:
+          type: integer
+        entities:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/EntityDeviationStats'
+        updated_at:
+          type: string
+
+    DecisionComparisonPayload:
+      type: object
+      properties:
+        is_optimal:
+          type: boolean
+        optimal_action:
+          type: string
+        actual_action:
+          type: string
+        category:
+          type: string
+          enum: [hard_total, soft_total, pair_split, surrender, insurance]
+        reasoning:
+          type: string
+        is_legal:
+          type: boolean
+          default: true
