@@ -114,3 +114,8 @@ class SimulationSession:
     start_time: str
     end_time: str | None = None
     metrics: dict[str, SimulationMetrics] = field(default_factory=dict)
+
+    @property
+    def rounds_completed(self) -> int:
+        """Alias for current_round representing the number of completed rounds."""
+        return self.current_round

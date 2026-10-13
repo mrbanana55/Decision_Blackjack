@@ -96,6 +96,21 @@ def test_reproducibility_across_identical_seeds():
     asyncio.run(_test())
 
 
+def test_orchestrator_run_convenience_method():
+    """Verify that orchestrator.run() executes and returns session with rounds_completed."""
+    async def _test():
+        config = SimulationConfig(max_rounds=5, seed=42)
+        orchestrator = SimulationOrchestrator(config)
+        orchestrator.register_entity("opt", BasicStrategyAgent())
+        session = await orchestrator.run()
+        assert session.status == SessionStatus.COMPLETED
+        assert session.rounds_completed == 5
+        assert session.current_round == 5
+        assert "opt" in orchestrator.tables
+
+    asyncio.run(_test())
+
+
 if __name__ == "__main__":
     for name, func in list(globals().items()):
         if name.startswith("test_") and callable(func):

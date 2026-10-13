@@ -344,3 +344,79 @@ All 24 tasks (T001–T024) across 7 phases were executed and verified against Do
 - **Static Analysis & Linting**: `ruff check` passed with zero errors across all Laya modules and test suites.
 
 
+
+---
+
+## Session: 2026-10-12
+
+**Focus**: Remote TypeSafe Jev System One Model Integration, Bearer Token Authentication, Rate Limit Backoff, Situational Schemas, and Tri-Entity Benchmarking  
+**Branch**: `main` (Feature directory: `specs/006-jev-agent-integration/`)  
+**Status**: Completed & Verified (100% Test Pass Rate, 173/173 unit/integration tests passed, 30 new Jev tests, 0 failures)
+
+---
+
+### 1. Executive Summary
+
+Today's session designed, implemented, and verified the complete **TypeSafe Jev Decision Agent Integration** residing in `backend/app/integrations/jev/`. This integration connects the blackjack simulation engine with TypeSafe's flagship System One remote model **Jev** via `POST https://api.typesafe.ai/v1/systemone` using Bearer token authentication configured in `.env` (`TYPESAFE_API_KEY`, `TYPESAFE_API_URL`, `TYPESAFE_MODEL`).
+
+Following the Spec-Kit methodology (`specify` → `plan` → `tasks` → `implement`), Jev now acts as a full-fledged autonomous decision provider within the multi-agent orchestrator alongside Laya and Optimal Basic Strategy:
+- **Clean Decoupling**: All remote transport, authentication, and serialization code resides isolated in `backend/app/integrations/jev/`.
+- **Dynamic Situational Schemas**: `JevSchemaBuilder` constructs context-aware natural language game states with the mandatory `"model"` parameter, constraining candidate actions strictly to legal actions across all situations (Initial Paired Hand with/without Surrender, Initial Standard Hand with/without Surrender, Multi-Card Draw, Insurance Offer, and Pre-Deal Wager Sizing).
+- **Multi-Phase Autonomy**: `JevAgent` participates in round opening bet sizing (`1x`, `2x`, `4x`, `8x` of table minimum bet), insurance side bets, and all in-hand tactical decisions (Hit, Stand, Double, Split, Surrender).
+- **Fault Resilience & Rate Limit Backoff (RNF-02)**: Implemented automated exponential backoff retry on HTTP 429 (`Too Many Requests`) and HTTP 529 (`Overloaded`). On persistent errors or timeouts, cleanly raises `AgentFaultError`, transitioning the simulation to `PAUSED_ERROR` synchronously without state or bankroll corruption.
+- **Unified Telemetry & Benchmarking**: Captures model revision, token usage (`input_tokens`, `output_tokens`), latency, confidence score, and probability distributions, mapping them to `decisions` and `model_responses` (`provider=ModelProvider.SYSTEM_ONE`) while benchmarking decisions in real time against the `DecisionComparator`.
+
+---
+
+### 2. Implemented Architecture (`backend/app/integrations/jev/`)
+
+| Module | Core Responsibility |
+| :--- | :--- |
+| [`config.py`](../backend/app/integrations/jev/config.py) | `JevConfig` reading `TYPESAFE_API_KEY`, `TYPESAFE_API_URL`, `TYPESAFE_MODEL`, timeouts, and retry limits dynamically from `.env`. |
+| [`schemas.py`](../backend/app/integrations/jev/schemas.py) | Pydantic v2 transport models (`QuestionType`, `ChoiceQuestion`, `SystemOneRequest`, `ChoiceAnswer`, `UsageInfo`, `SystemOneResponse`, `JevHealthStatus`, `HandSituationType`). |
+| [`client.py`](../backend/app/integrations/jev/client.py) | Async HTTP client (`httpx.AsyncClient`) supporting `GET /health` and `POST /v1/systemone` with Bearer auth, exponential backoff retries, and `AgentFaultError` error translation. |
+| [`builder.py`](../backend/app/integrations/jev/builder.py) | `JevSchemaBuilder` generating dynamic situational prompts matching table rules, bankroll, and legal actions. |
+| [`agent.py`](../backend/app/integrations/jev/agent.py) | `JevAgent` satisfying `DecisionProvider` protocol (`name="Jev"`, `entity_type=EntityType.JEV`, `get_decision()`, `get_bet()`, `get_insurance()`). |
+| [`__init__.py`](../backend/app/integrations/jev/__init__.py) | Package public API exports. |
+
+---
+
+### 3. Verification & Testing
+
+All 24 tasks (T001–T024) defined in `specs/006-jev-agent-integration/tasks.md` were executed and verified with 30 new automated tests across 5 test modules:
+
+- **[`test_jev_config.py`](../backend/tests/test_jev_config.py)** (4 tests): Default configurations, `.env` parameter overrides, URL helpers, and boundary validation.
+- **[`test_jev_schemas.py`](../backend/tests/test_jev_schemas.py)** (8 tests): Situational schemas for Contracts 1A, 1B, 2A, 2B, 3, 4 (Insurance), and 5 (Betting with dynamic `min_bet`).
+- **[`test_jev_client.py`](../backend/tests/test_jev_client.py)** (9 tests): Health probe `/health`, Bearer authentication header, retry on HTTP 429/529, token usage parsing, and error translation.
+- **[`test_jev_agent.py`](../backend/tests/test_jev_agent.py)** (7 tests): `get_decision()` across all actions, illegal action fallback, `get_bet()` discrete multipliers, `get_insurance()` choices, and telemetry metadata packaging.
+- **[`test_jev_simulation.py`](../backend/tests/test_jev_simulation.py)** (2 tests): Multi-agent simulation verifying `PAUSED_ERROR` on fault, table bankroll preservation, resume execution, and `DecisionComparator` evaluation.
+- **Full Project Test Suite**: 174 passed, 0 failed, 10 skipped (container DB) across engine, simulation, persistence, Laya, and Jev integrations.
+
+---
+
+### 4. Post-Verification Bugfix & Developer Ergonomics Update
+
+- **Issue Resolved**: When users executed the Scenario 4 quickstart snippet (`await orchestrator.run()`), `AttributeError: 'SimulationOrchestrator' object has no attribute 'run'` was encountered.
+- **Root Cause**: `SimulationOrchestrator` implemented `start()` but lacked an async `run()` convenience method returning `self.session`, and `SimulationSession` lacked a `rounds_completed` alias for `current_round`.
+- **Changes Applied**:
+  - Added `async def run(self) -> SimulationSession` to [`backend/app/simulation/orchestrator.py`](../backend/app/simulation/orchestrator.py) to launch `start()` and cleanly return the final session snapshot.
+  - Added `@property def rounds_completed(self) -> int` to `SimulationSession` in [`backend/app/simulation/types.py`](../backend/app/simulation/types.py).
+  - Added `register_entity = add_entity` alias to `SimulationOrchestrator` for backward compatibility across both Laya and Jev quickstart scripts.
+  - Added unit test `test_orchestrator_run_convenience_method` in [`backend/tests/test_simulation_orchestrator.py`](../backend/tests/test_simulation_orchestrator.py).
+  - Verified 100% pass rate: 174 passed, 0 failed, 10 skipped.
+
+---
+
+### 5. Automated `.env` Loading & Authentication Fix (HTTP 403 Resolution)
+
+- **Issue Resolved**: When executing `JevAgent()` in Python scripts, inference calls failed with HTTP 403 `{"detail":{"error_type":"authentication_error","message":"Must supply an API key! Check your request and try again."}}`.
+- **Root Cause**: Python processes executing outside of Docker did not automatically parse the workspace `.env` file into `os.environ`. Consequently, `os.getenv("TYPESAFE_API_KEY", "")` evaluated to empty string, suppressing the `Authorization` header.
+- **Changes Applied**:
+  - Implemented automatic `.env` discovery and loading in [`backend/app/integrations/jev/config.py`](../backend/app/integrations/jev/config.py) using `find_dotenv(usecwd=True)` and recursive parent directory lookup with `override=False`.
+  - Added `@field_validator("api_key")` to sanitize whitespace and quotes.
+  - Added dual authentication headers in [`backend/app/integrations/jev/client.py`](../backend/app/integrations/jev/client.py): `Authorization: Bearer <key>` and `x-api-key: <key>`.
+  - Added pre-flight check in `send_systemone()` raising `AgentFaultError` immediately if `api_key` is missing.
+  - Handled both HTTP 401 and HTTP 403 as non-retryable authentication failures.
+  - Added tests `test_send_systemone_auth_error_403` and `test_send_systemone_missing_api_key` in [`backend/tests/test_jev_client.py`](../backend/tests/test_jev_client.py).
+  - Verified 100% pass rate: 176 passed, 0 failed, 10 skipped.
+

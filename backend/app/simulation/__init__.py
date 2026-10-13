@@ -41,6 +41,7 @@ __all__ = [
     "FakeJevAgent",
     "FakeLayaAgent",
     "IllegalAgentActionError",
+    "JevAgent",
     "LayaAgent",
     "OrchestratorController",
     "SessionStatus",
@@ -56,6 +57,9 @@ __all__ = [
 
 
 def __getattr__(name: str):
+    if name == "JevAgent":
+        from app.integrations.jev import JevAgent
+        return JevAgent
     if name == "LayaAgent":
         from app.integrations.laya import LayaAgent
         return LayaAgent

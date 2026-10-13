@@ -128,6 +128,8 @@ class SimulationOrchestrator(OrchestratorController):
         self.tables[entity_id] = table
         return table
 
+    register_entity = add_entity
+
     async def _emit(self, event_type: EventType, payload: dict[str, Any]) -> None:
         """Helper to emit an event on the event bus."""
         event = SimulationEvent(
@@ -396,6 +398,11 @@ class SimulationOrchestrator(OrchestratorController):
         )
 
         await self._simulation_loop()
+
+    async def run(self) -> SimulationSession:
+        """Execute the simulation loop to completion and return the final session snapshot."""
+        await self.start()
+        return self.session
 
     async def pause(self) -> None:
         """Suspend execution cleanly at the current turn/round boundary."""
