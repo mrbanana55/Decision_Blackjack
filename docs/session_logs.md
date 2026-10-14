@@ -619,3 +619,139 @@ frontend/src/
    - Scenario 5: External AI Provider Fault & Recovery (RNF-02)
    - Scenario 6: Completion Page Success Dialog & Actions
    - Scenario 7: Startup Database Tools (Export Whole DB & Delete DB)
+
+---
+
+## Session: 2026-10-14
+
+**Focus**: Simulation Runtime Diagnostics, Flow Control & Telemetry Enhancements, Database Purge Resilience, Discord Analysis Single-Theme UI Redesign, and Visual Bug Fixes  
+**Branch**: `main`  
+**Status**: Completed & Verified (100% Backend Pytest Pass Rate, 212/212 tests, 0 TypeScript/Vite Build Errors)
+
+---
+
+### 1. Executive Summary
+
+Today's session tackled two major thrusts:
+1. **Critical Runtime Diagnostics, Engine Flow Control & Telemetry Enhancements**: Fixed simulation card dealing and bankroll synchronization, resolved pause/resume idempotency issues in orchestrator flow control, clarified Laya choice evaluations, eliminated `NaN` from optimal strategy telemetry, implemented dynamic generational shoe tracking and a "Shuffling Deck" overlay, added comprehensive shoe telemetry (remaining cards, running count, and True Count), integrated an educational project Info Modal, and fixed a frontend crash during database truncation.
+2. **Comprehensive Frontend UI Redesign (`DESIGN.md`)**: Rebuilt the frontend styling using the Discord Analysis design language—featuring a deep dark indigo canvas (`#0a0d3a`), `#1e2353` raised surfaces, Blurple (`#5865f2`), Electric Green (`#35ed7e`), and Discord Magenta (`#ec48bd`) accents, with Space Grotesk and Plus Jakarta Sans typography. Adhered strictly to the requirement of a single cohesive theme without dark/light mode toggles while keeping all playing card assets and individual player table felt colors (`rgb(213, 120, 190)`, `rgb(68, 120, 208)`, `rgb(118, 194, 154)`) intact.
+3. **Visual Defect Resolution**: Eliminated a black rectangular shadow artifact appearing over dealer cards caused by a misplaced badge backdrop and Safari/WebKit GPU compositing collisions.
+
+---
+
+### 2. Runtime Diagnostics, Flow Control & Telemetry Fixes
+
+#### A. Card Dealing & Bet Zero / Bankroll Stagnation
+- **Symptom**: During live visualizer execution, card graphics failed to appear on player carpets, opening bets were reported as `$0`, and bankrolls remained static.
+- **Root Cause**: Desynchronization between orchestrator event emission and frontend WebSocket handling in `SimulationContext.tsx`. Telemetry frames (`ROUND_STARTED`, `CARD_DEALT`, `DECISION_MADE`, `ROUND_SETTLED`) were not properly applying delta changes to table states or initial wager state was not captured before dealing began.
+- **Resolution**:
+  - Synchronized bet propagation in `backend/app/simulation/table.py` and `orchestrator.py` during pre-deal round setup so opening bets are committed to table state and broadcast in `ROUND_STARTED`.
+  - Updated `SimulationContext.tsx` event reducers to capture cards on deal events and immediately update bankroll transactions.
+
+#### B. Pause-Resume-Pause Toggle Failure
+- **Symptom**: Pausing the simulation worked initially, but after resuming and attempting to pause a second time, the simulation ignored the pause request and continued running.
+- **Root Cause**: The orchestrator's internal `asyncio.Event` control flag and the frontend's local `isPaused` state fell out of sync when resume commands were acknowledged asynchronously.
+- **Resolution**:
+  - Hardened state tracking in `backend/app/simulation/orchestrator.py` and `backend/app/api/manager.py` to ensure pause state transitions are idempotent.
+  - Bound the frontend `ControlBar` and `SimulationContext` directly to authoritative server state notifications rather than optimistic local toggling alone.
+
+#### C. Laya Decision Analysis (Always Standing)
+- **Investigation**: Evaluated whether Laya's continuous "Stand" decisions indicated an HTTP 200 payload failure or misconfiguration.
+- **Findings**: Verified the TypeSafe System One schema and prompt builder in `backend/app/integrations/laya/builder.py` and `agent.py`. The endpoint correctly returned HTTP 200, but prompt nuances and situational choice options needed closer adherence to table rules so hitting, doubling, and splitting choices were clearly distinguishable to the model.
+
+#### D. Telemetry Edge Cases: Optimal Agreement `NaN`, Shoe Generation `#1`, & "Shuffling Deck" Banner
+- **Optimal Agreement `NaN`**: In `LiveStatsRow.tsx`, agreement percentage computed `(optimal_agreements / total_decisions) * 100`. When `total_decisions === 0` at round start, this evaluated to `NaN%`. Added a safe fallback rendering `0.0%` until the first decision is evaluated.
+- **Shoe Generation `#1`**: The shoe generation counter on player tables was previously hardcoded or reading a static index. Wired dynamic generation tracking from table shoe state so generation increments (`#1`, `#2`, etc.) reflect actual deck swaps.
+- **"Shuffling Deck" State**: When a table crosses cut-card penetration and reaches the end of the shoe, users needed a clear visual cue. Added a high-visibility "Shuffling Deck" arcade overlay banner in `TableCarpetRow.tsx` that triggers whenever the table is transitioning between shoe generations.
+
+#### E. Deep Shoe Telemetry & Project Info Modal
+- **Shoe Metrics in LiveStatsRow**: Added three real-time shoe statistics directly in the player stats panel—positioned cleanly between current bet/action and the basic strategy suggestion:
+  - **Remaining Cards**: Cards left before shoe exhaustion.
+  - **Running Count**: Hi-Lo card counting running total.
+  - **True Count**: Scaled count per half-deck with signed formatting (`+2.4`, `-1.0`).
+- **Info Modal**: Added an information button (circle with `i` icon) in `Navbar.tsx` opening an interactive dialog detailing:
+  - *What It Does*: Purpose of benchmarking AI models vs Basic Strategy.
+  - *How It Works*: Concurrent isolated tables, identical generational shoes, and real-time deviation analytics.
+  - *How It Is Made*: Architectural stack (FastAPI, Python engine, React 19, TypeScript, Tailwind, GSAP).
+
+#### F. Database Purge Schema Divergence
+- **Symptom**: Invoking "Delete Database" from the UI threw `TypeError: undefined is not an object (evaluating 'res.records_deleted.toLocaleString')`.
+- **Root Cause**: Divergence between `PurgeDatabaseResponse` in `backend/app/api/schemas.py` (`{"status": "purged", "tables_purged": 15}`) and the frontend expectation in `frontend/src/types/api.ts` which expected `records_deleted: number`.
+- **Resolution**:
+  - Updated backend endpoint in `backend/app/api/database.py` and `schemas.py` to return `records_deleted` alongside `tables_purged`.
+  - Added safe optional chaining in `frontend/src/components/DeleteDatabaseModal.tsx` (`res?.records_deleted?.toLocaleString() ?? 'All'`).
+
+---
+
+### 3. Major UI Redesign (`DESIGN.md` — Discord Analysis Language)
+
+Implemented a comprehensive aesthetic redesign across the entire frontend adhering to [`DESIGN.md`](../DESIGN.md):
+
+1. **Single Unified Theme**:
+   - Replaced dual light/dark CSS mode logic with a single, high-contrast dark indigo palette. Removed light-theme overrides to guarantee visual consistency.
+2. **Strict Preservation**:
+   - Preserved all card SVGs (`frontend/Assets/cards/*.svg`) and deal/double layouts.
+   - Preserved individual player table felt colors and radial gradients in `TableCarpetRow.tsx`:
+     - **Jev**: `rgb(213, 120, 190)`
+     - **Laya**: `rgb(68, 120, 208)`
+     - **Basic Strategy**: `rgb(118, 194, 154)`
+3. **Tokens & Atmospheric Styling**:
+   - **Canvas**: `#0a0d3a` base with atmospheric fixed Blurple/Magenta radial mesh gradients (`.discord-canvas-mesh`).
+   - **Surfaces**: `#1e2353` raised surface, `#23272a` onyx well, `#2b305c` hairline borders.
+   - **Accents**: Blurple (`#5865f2`), Electric Green (`#35ed7e`), Discord Magenta (`#ec48bd`), Cyan Link (`#00b0f4`).
+   - **Typography**: Space Grotesk (headers/display) and Plus Jakarta Sans (body).
+4. **Redesigned Components**:
+   - `Navbar.tsx`: Sleek branding with `BENCHMARK STUDIO` pill tag, Cyan info button, and Discord-styled action buttons.
+   - `SimulationConfigForm.tsx`: Raised indigo cards with deep onyx input wells, toggle switches, and an Electric Green primary CTA button.
+   - `ControlBar.tsx`: Floating bottom telemetry bar with circular progress ring, Electric Green resume / Blurple pause controls, and sleek slider.
+   - `LiveStatsRow.tsx`: Stat cards featuring high-contrast neon badges, shoe telemetry wells, basic strategy match banner, and 3 dynamic progress bars.
+   - `TableCarpetRow.tsx`: Cleaned player headers, neon chips, and high-visibility shuffle notifications while maintaining felt backgrounds.
+   - `FastBatchProgressCard.tsx` & `CompletionPage.tsx`: Modernized progress monitoring and post-game summary tables with high-contrast P/L indicators.
+
+---
+
+### 4. Visual Defect Resolution: Dealer Card Black Shadow Rectangle
+
+- **Issue**: When dealer cards were rendered on table carpets, an unsightly black rectangle appeared around or behind the cards resembling a buggy shadow.
+- **Root Cause Analysis**:
+  1. In `TableCarpetRow.tsx`, a badge `<Badge variant="outline" className="bg-black/35 ...">` was conditionally rendered next to the "Dealer" label whenever `dealer_cards.length > 0`. Because it sat right at the edge of the card slot with a dark semi-transparent fill, it visually appeared as a misplaced rectangular card drop shadow.
+  2. In `CardView.tsx`, the card `<img />` had Tailwind `shadow-md` applied. In WebKit/Safari on macOS, combining CSS `box-shadow` directly with GSAP `fromTo` transforms (involving `scale`, `y`, and `rotate`) caused GPU compositing render bugs that flashed a solid rectangular backing.
+- **Fix Applied**:
+  - Removed the offending background badge from `TableCarpetRow.tsx`, replacing it with a clean bust notification pill when needed.
+  - Removed `shadow-md` and `transition-shadow` from the animated `img` tag in `CardView.tsx`.
+
+---
+
+### 5. Verification & Validation Summary
+
+- **Frontend Compilation**: `npm run build` in `frontend/` succeeded with **0 errors** (packaging all assets, CSS, and TypeScript modules).
+- **Backend Test Suite**: Full `pytest` execution against `backend/tests/` passed **212 tests with 0 failures** (including schema, orchestrator, Laya, Jev, and WebSocket suites).
+- **Runtime Integrity**: Live visualizer runs, headless batch runs, pausing/resuming, database purging, and informational dialogs all functioned smoothly with consistent styling.
+
+---
+
+### 6. Documentation & Files Modified
+
+| File | Changes Made |
+| :--- | :--- |
+| [`frontend/index.html`](../frontend/index.html) | Loaded Google Fonts (`Space Grotesk`, `Plus Jakarta Sans`) and set base background. |
+| [`frontend/tailwind.config.js`](../frontend/tailwind.config.js) | Extended theme with Discord design tokens, font families, and rounded scale. |
+| [`frontend/src/index.css`](../frontend/src/index.css) | Replaced dual-theme with single `:root` palette and `.discord-canvas-mesh`. |
+| [`frontend/src/App.tsx`](../frontend/src/App.tsx) | Applied canvas mesh and font-sans to root container. |
+| [`frontend/src/components/ui/*`](../frontend/src/components/ui/) | Restyled `button`, `badge`, `card`, `dialog`, `input`, `progress`, `select`, `slider`, and `switch`. |
+| [`frontend/src/components/Navbar.tsx`](../frontend/src/components/Navbar.tsx) | Redesigned header, added InfoModal trigger button and Discord button styling. |
+| [`frontend/src/components/ControlBar.tsx`](../frontend/src/components/ControlBar.tsx) | Fixed bottom bar with circular progress, pause/resume button, and speed slider. |
+| [`frontend/src/components/InfoModal.tsx`](../frontend/src/components/InfoModal.tsx) | Added 3-card educational dialog explaining benchmark mechanics and stack. |
+| [`frontend/src/components/DeleteDatabaseModal.tsx`](../frontend/src/components/DeleteDatabaseModal.tsx) | Restyled modal, handled `records_deleted` safely without crashing on undefined. |
+| [`frontend/src/components/FaultAlertModal.tsx`](../frontend/src/components/FaultAlertModal.tsx) | Restyled RNF-02 fault recovery dialog in dark indigo and rose accents. |
+| [`frontend/src/components/TriPlayerSummaryTable.tsx`](../frontend/src/components/TriPlayerSummaryTable.tsx) | Redesigned comparative metrics table with high-contrast P/L styling. |
+| [`frontend/src/forms/SimulationConfigForm.tsx`](../frontend/src/forms/SimulationConfigForm.tsx) | Raised indigo cards, deep input wells, and Electric Green CTA. |
+| [`frontend/src/visualization/LiveStatsRow.tsx`](../frontend/src/visualization/LiveStatsRow.tsx) | Added remaining cards, count, and True Count telemetry; fixed `NaN` optimal agreement rate. |
+| [`frontend/src/visualization/TableCarpetRow.tsx`](../frontend/src/visualization/TableCarpetRow.tsx) | Added "Shuffling Deck" overlay; removed black rectangle badge; preserved carpet felt colors. |
+| [`frontend/src/components/CardView.tsx`](../frontend/src/components/CardView.tsx) | Removed `shadow-md` to fix Safari GPU compositing rectangle artifact during deal animation. |
+| [`frontend/src/pages/*`](../frontend/src/pages/) | Updated `ConfigurationPage`, `VisualizerPage`, `FastBatchPage`, and `CompletionPage` to new design system. |
+| [`backend/app/api/database.py`](../backend/app/api/database.py) | Synchronized purge response schema with frontend expectations. |
+| [`backend/app/api/schemas.py`](../backend/app/api/schemas.py) | Added `records_deleted` to `PurgeDatabaseResponse`. |
+| [`backend/app/simulation/orchestrator.py`](../backend/app/simulation/orchestrator.py) | Hardened pause/resume idempotency and event loop stepping. |
+| [`backend/app/simulation/table.py`](../backend/app/simulation/table.py) | Synchronized pre-deal bet commitment and shoe telemetry updates. |
+| [`docs/session_logs.md`](session_logs.md) | Documented all deliverables and fixes for the 2026-10-14 session. |

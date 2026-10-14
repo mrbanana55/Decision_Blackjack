@@ -3,21 +3,25 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+  'inline-flex items-center rounded-pill border px-2.5 py-0.5 text-xs font-semibold tracking-wide transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
   {
     variants: {
       variant: {
-        default: 'border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80',
-        secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
-        destructive: 'border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80',
-        outline: 'text-foreground',
-        success: 'border-transparent bg-emerald-600 text-white shadow hover:bg-emerald-700',
-        warning: 'border-transparent bg-amber-500 text-white shadow hover:bg-amber-600',
-        hit: 'border-transparent bg-blue-600 text-white shadow',
-        stand: 'border-transparent bg-amber-600 text-white shadow',
-        double: 'border-transparent bg-purple-600 text-white shadow',
-        split: 'border-transparent bg-emerald-600 text-white shadow',
-        surrender: 'border-transparent bg-rose-600 text-white shadow',
+        default: 'border-transparent bg-[#5865f2] text-white shadow-sm',
+        primary: 'border-transparent bg-[#5865f2] text-white shadow-sm',
+        magenta: 'border-transparent bg-[#ec48bd] text-white shadow-sm',
+        green: 'border-transparent bg-[#35ed7e] text-black font-bold shadow-sm',
+        cyan: 'border-transparent bg-[#00b0f4] text-black font-bold shadow-sm',
+        secondary: 'border-[#2b305c] bg-[#1e2353] text-[#949ba4]',
+        outline: 'border-[#2b305c] bg-transparent text-white',
+        destructive: 'border-rose-500/30 bg-rose-500/20 text-rose-300',
+        success: 'border-emerald-500/30 bg-[#35ed7e]/20 text-[#35ed7e]',
+        warning: 'border-amber-500/30 bg-amber-500/20 text-amber-300',
+        hit: 'border-transparent bg-[#00b0f4] text-black font-bold shadow-sm',
+        stand: 'border-transparent bg-[#fee75c] text-black font-bold shadow-sm',
+        double: 'border-transparent bg-[#ec48bd] text-white font-bold shadow-sm',
+        split: 'border-transparent bg-[#35ed7e] text-black font-bold shadow-sm',
+        surrender: 'border-transparent bg-[#f04747] text-white font-bold shadow-sm',
       },
     },
     defaultVariants: {

@@ -12,8 +12,8 @@ const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
     return (
       <label
         className={cn(
-          'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-          checked ? 'bg-primary' : 'bg-input',
+          'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-pill transition-colors duration-200 border border-[#2b305c]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5865f2]',
+          checked ? 'bg-[#5865f2] shadow-sm shadow-[#5865f2]/40' : 'bg-[#23272a]',
           disabled && 'cursor-not-allowed opacity-50',
           className
         )}
@@ -29,8 +29,8 @@ const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
         />
         <span
           className={cn(
-            'pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform',
-            checked ? 'translate-x-4' : 'translate-x-0.5'
+            'pointer-events-none block h-5 w-5 rounded-full bg-white shadow-md ring-0 transition-transform duration-200 ease-in-out',
+            checked ? 'translate-x-[22px]' : 'translate-x-[2px]'
           )}
         />
       </label>

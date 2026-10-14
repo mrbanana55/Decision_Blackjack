@@ -1,8 +1,8 @@
-import React, { useRef } from 'react';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
-import { CardVisualState } from '../types/simulation';
-import { CARD_BACK_URL } from '../lib/cardAssets';
+import React, { useRef } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+import { CardVisualState } from "../types/simulation";
+import { CARD_BACK_URL } from "../lib/cardAssets";
 
 interface CardViewProps {
   card: CardVisualState;
@@ -13,7 +13,7 @@ interface CardViewProps {
 export const CardView: React.FC<CardViewProps> = ({
   card,
   delayMs = 300,
-  className = '',
+  className = "",
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -49,12 +49,21 @@ export const CardView: React.FC<CardViewProps> = ({
             scale: 1,
             rotate: card.is_horizontal ? 90 : 0,
             duration,
-            ease: 'power2.out',
-          }
+            ease: "power2.out",
+          },
         );
       }
     },
-    { dependencies: [card.id, card.is_horizontal, duration, card.is_hidden, card.svg_path], scope: cardRef }
+    {
+      dependencies: [
+        card.id,
+        card.is_horizontal,
+        duration,
+        card.is_hidden,
+        card.svg_path,
+      ],
+      scope: cardRef,
+    },
   );
 
   const imageSrc = card.is_hidden ? CARD_BACK_URL : card.svg_path;
@@ -62,18 +71,18 @@ export const CardView: React.FC<CardViewProps> = ({
   return (
     <div
       ref={cardRef}
-      className={`relative inline-block select-none transition-shadow ${
-        card.is_horizontal ? 'origin-center my-3 mx-2' : ''
+      className={`relative inline-block select-none ${
+        card.is_horizontal ? "origin-center my-3 mx-2" : ""
       } ${className}`}
       style={{
-        width: '56px',
-        height: '80px',
+        width: "56px",
+        height: "80px",
       }}
     >
       <img
         src={imageSrc}
-        alt={card.is_hidden ? 'Card Back' : card.card_str}
-        className="h-full w-full object-contain rounded-md shadow-md border border-slate-700/40 bg-white"
+        alt={card.is_hidden ? "Card Back" : card.card_str}
+        className="h-full w-full object-contain rounded-xs border border-slate-700/40 bg-white"
         loading="eager"
       />
     </div>

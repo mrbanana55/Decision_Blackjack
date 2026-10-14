@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 import { DeleteDatabaseModal } from './DeleteDatabaseModal';
 import { InfoModal } from './InfoModal';
 import { apiClient } from '../services/apiClient';
@@ -23,32 +24,32 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-[#2b305c]/80 bg-[#0a0d3a]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-          {/* Brand */}
+          {/* Brand mark */}
           <div className="flex items-center space-x-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-[#5865f2] text-white shadow-lg shadow-[#5865f2]/30">
               <Dices className="h-5 w-5" />
             </div>
-            <div>
-              <span className="text-base font-bold tracking-tight text-slate-100">
+            <div className="flex items-center space-x-2">
+              <span className="font-display text-lg font-extrabold tracking-tight text-white uppercase">
                 Decision Blackjack
               </span>
-              <span className="hidden sm:inline-block ml-2 text-xs text-slate-500">
+              <Badge variant="magenta" className="hidden sm:inline-flex text-[10px] uppercase font-bold tracking-wider px-2 py-0.5">
                 Benchmark Studio
-              </span>
+              </Badge>
             </div>
           </div>
 
-          {/* Global Startup Actions */}
-          <div className="flex items-center space-x-2">
+          {/* Global Actions */}
+          <div className="flex items-center space-x-2.5">
             {/* Info Button: circle with an i inside */}
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setInfoModalOpen(true)}
-              className="h-8 w-8 rounded-full p-0 border-slate-700 bg-slate-900 text-cyan-400 hover:bg-slate-800 hover:text-cyan-300 shadow-sm"
+              className="h-9 w-9 rounded-full p-0 border-[#2b305c] bg-[#1e2353] text-[#00b0f4] hover:bg-[#5865f2] hover:text-white hover:border-[#5865f2] shadow-sm transition-all"
               title="About Decision Blackjack"
             >
               <Info className="h-4 w-4" />
@@ -57,21 +58,21 @@ export const Navbar: React.FC = () => {
 
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               disabled={isExporting}
               onClick={handleExportDatabase}
-              className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 text-xs h-8 px-3"
+              className="text-xs h-9 px-3.5 border-[#2b305c] bg-[#1e2353] hover:bg-[#262c69] text-white font-semibold"
             >
               {isExporting ? (
                 <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-amber-400" />
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-[#fee75c]" />
                   Exporting...
                 </>
               ) : (
                 <>
-                  <Download className="mr-1.5 h-3.5 w-3.5 text-cyan-400" />
-                  Export Whole Database
+                  <Download className="mr-1.5 h-3.5 w-3.5 text-[#00b0f4]" />
+                  Export Database
                 </>
               )}
             </Button>
@@ -81,9 +82,9 @@ export const Navbar: React.FC = () => {
               variant="destructive"
               size="sm"
               onClick={() => setDeleteModalOpen(true)}
-              className="bg-rose-600/20 text-rose-300 hover:bg-rose-600/30 border border-rose-500/30 text-xs h-8 px-3"
+              className="text-xs h-9 px-3.5"
             >
-              <Trash2 className="mr-1.5 h-3.5 w-3.5 text-rose-400" />
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               Delete Database
             </Button>
           </div>

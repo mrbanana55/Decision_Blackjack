@@ -9,7 +9,7 @@ export default function App() {
   return (
     <SimulationProvider>
       <BrowserRouter>
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+        <div className="min-h-screen discord-canvas-mesh text-white flex flex-col font-sans">
           <Routes>
             <Route path="/" element={<ConfigurationPage />} />
             <Route path="/batch/:sessionId" element={<FastBatchPage />} />

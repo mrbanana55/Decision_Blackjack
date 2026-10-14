@@ -7,7 +7,7 @@ import { FaultAlertModal } from '../components/FaultAlertModal';
 import { InfoModal } from '../components/InfoModal';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Disc, Layers, Info } from 'lucide-react';
+import { Disc, Layers, Info, ArrowLeft } from 'lucide-react';
 
 export const VisualizerPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -41,34 +41,46 @@ export const VisualizerPage: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-950 pb-24">
+    <div className="flex-1 flex flex-col pb-24">
       {/* Top Session Bar */}
-      <div className="border-b border-slate-800 bg-slate-900/60 px-6 py-3">
+      <header className="sticky top-0 z-30 border-b border-[#2b305c]/80 bg-[#0a0d3a]/90 backdrop-blur-md px-4 py-3 sm:px-6">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center space-x-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleStop}
+              className="h-8 px-2 text-[#949ba4] hover:text-white"
+              title="Return to Configuration"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline text-xs font-semibold">Exit</span>
+            </Button>
+
+            <span className="flex h-9 w-9 items-center justify-center rounded-sm bg-[#5865f2] text-white shadow-md shadow-[#5865f2]/30 font-bold">
               <Disc className="h-4 w-4 animate-spin" />
             </span>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-sm font-bold text-slate-100">
-                  Tri-Entity Real-Time Visualizer
+                <h2 className="font-display text-base font-extrabold text-white uppercase tracking-tight">
+                  Live Visualizer
                 </h2>
-                <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-400">
-                  Session: {sessionId?.slice(0, 10)}...
+                <Badge variant="secondary" className="text-[10px] font-mono px-2 py-0.5 border-[#2b305c]">
+                  {sessionId?.slice(0, 8)}...
                 </Badge>
               </div>
-              <p className="text-xs text-slate-400">
-                Synchronized execution comparing Jev, Laya, and Basic Strategy
+              <p className="text-xs text-[#949ba4] font-medium hidden sm:block">
+                Synchronized benchmark comparing Jev, Laya, and Basic Strategy
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-1.5 text-xs text-slate-400">
-              <Layers className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Shoe Gen:</span>
-              <span className="font-mono font-semibold text-slate-200">
+            <div className="flex items-center space-x-1.5 text-xs text-[#949ba4] bg-[#1e2353] border border-[#2b305c] px-2.5 py-1 rounded-pill">
+              <Layers className="h-3.5 w-3.5 text-[#00b0f4]" />
+              <span className="font-semibold">Shoe:</span>
+              <span className="font-mono font-bold text-white">
                 #{session.shoe_generation}
               </span>
             </div>
@@ -76,12 +88,12 @@ export const VisualizerPage: React.FC = () => {
             <Badge
               variant={
                 session.status === 'RUNNING'
-                  ? 'success'
+                  ? 'green'
                   : session.status === 'PAUSED_ERROR'
                   ? 'destructive'
                   : 'secondary'
               }
-              className="text-xs uppercase"
+              className="text-xs uppercase font-extrabold px-3 py-1"
             >
               {session.status}
             </Badge>
@@ -92,15 +104,15 @@ export const VisualizerPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setInfoModalOpen(true)}
-              className="h-7 w-7 rounded-full p-0 border-slate-700 bg-slate-900 text-cyan-400 hover:bg-slate-800 hover:text-cyan-300 shadow-sm"
+              className="h-8 w-8 rounded-full p-0 border-[#2b305c] bg-[#1e2353] text-[#00b0f4] hover:bg-[#5865f2] hover:text-white hover:border-[#5865f2] shadow-sm transition-all"
               title="About Decision Blackjack"
             >
-              <Info className="h-3.5 w-3.5" />
+              <Info className="h-4 w-4" />
               <span className="sr-only">About Decision Blackjack</span>
             </Button>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Main 2x3 Visualizer Grid Container */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">

@@ -21,40 +21,42 @@ export const FastBatchProgressCard: React.FC<FastBatchProgressCardProps> = ({
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-4">
-      <Card className="w-full max-w-md border-slate-800 bg-slate-900/90 shadow-2xl backdrop-blur-sm">
+      <Card className="w-full max-w-md border-[#2b305c] bg-[#1e2353] shadow-2xl shadow-black/80">
         <CardHeader className="text-center pb-4">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-400">
-            <Zap className="h-6 w-6 animate-pulse" />
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-sm bg-[#5865f2] text-white shadow-lg shadow-[#5865f2]/40">
+            <Zap className="h-7 w-7 animate-pulse text-[#fee75c]" />
           </div>
           <div className="flex items-center justify-center space-x-2">
-            <CardTitle className="text-xl text-slate-100">Fast Batch Execution</CardTitle>
-            <Badge variant="secondary" className="bg-slate-800 text-amber-400">
-              Headless Path 1
+            <CardTitle className="font-display text-xl uppercase tracking-tight text-white">
+              Fast Batch Execution
+            </CardTitle>
+            <Badge variant="magenta" className="text-[10px] font-bold px-2 py-0.5">
+              Path 1
             </Badge>
           </div>
-          <CardDescription className="text-slate-400">
-            Running unthrottled benchmark simulation at maximum speed.
+          <CardDescription className="text-xs text-[#949ba4]">
+            Running unthrottled benchmark simulation at maximum engine speed.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
           {/* Round Indicator */}
           <div className="text-center space-y-1">
-            <p className="text-sm font-medium text-slate-400 uppercase tracking-wider">
+            <p className="text-xs font-bold text-[#949ba4] uppercase tracking-wider">
               Simulation Progress
             </p>
-            <div className="text-3xl font-bold tracking-tight text-slate-100">
+            <div className="font-display text-4xl font-extrabold tracking-tight text-white">
               Round {currentRound.toLocaleString()}{' '}
-              <span className="text-lg font-normal text-slate-500">
+              <span className="text-xl font-normal text-[#949ba4]">
                 / {maxRounds.toLocaleString()}
               </span>
             </div>
-            <p className="text-xs text-slate-400">{percentage}% completed</p>
+            <p className="font-mono text-xs font-bold text-[#35ed7e]">{percentage}% completed</p>
           </div>
 
           {/* Progress Bar */}
           <div className="space-y-2">
-            <Progress value={currentRound} max={maxRounds} className="h-3 bg-slate-800" indicatorClassName="bg-amber-500" />
+            <Progress value={currentRound} max={maxRounds} className="h-3" />
           </div>
 
           {/* Player Snapshot Chips */}
@@ -62,22 +64,22 @@ export const FastBatchProgressCard: React.FC<FastBatchProgressCardProps> = ({
             {Object.values(session.tables).map((tbl) => (
               <div
                 key={tbl.entity_id}
-                className={`rounded-lg border p-2 text-center transition-all ${
+                className={`rounded-sm border p-2.5 text-center transition-all ${
                   tbl.is_selected
-                    ? 'border-slate-800 bg-slate-950/60'
-                    : 'border-slate-900 bg-slate-950/20 opacity-40'
+                    ? 'border-[#2b305c] bg-[#0a0d3a]'
+                    : 'border-[#2b305c]/40 bg-[#0a0d3a]/30 opacity-40'
                 }`}
               >
                 <div className="flex items-center justify-center space-x-1.5 mb-1">
                   <span
-                    className="h-2 w-2 rounded-full"
+                    className="h-2 w-2 rounded-full shadow-sm"
                     style={{ backgroundColor: tbl.carpet_color }}
                   />
-                  <span className="text-xs font-semibold truncate text-slate-300">
-                    {tbl.entity_id.toUpperCase()}
+                  <span className="text-[11px] font-bold truncate text-white uppercase">
+                    {tbl.entity_id}
                   </span>
                 </div>
-                <div className="text-xs font-mono font-medium text-slate-200">
+                <div className="text-xs font-mono font-extrabold text-[#fee75c]">
                   ${Math.round(tbl.current_bankroll)}
                 </div>
               </div>
@@ -85,18 +87,18 @@ export const FastBatchProgressCard: React.FC<FastBatchProgressCardProps> = ({
           </div>
 
           {/* Animated Spinner Message */}
-          <div className="flex items-center justify-center space-x-2 text-xs text-slate-400">
-            <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
+          <div className="flex items-center justify-center space-x-2 text-xs text-[#949ba4]">
+            <Loader2 className="h-4 w-4 animate-spin text-[#00b0f4]" />
             <span>Processing round settlements & decision records...</span>
           </div>
         </CardContent>
 
-        <CardFooter className="pt-2">
+        <CardFooter className="pt-2 border-t border-[#2b305c]/60">
           <Button
             type="button"
             variant="destructive"
             onClick={onCancel}
-            className="w-full bg-rose-600/20 text-rose-300 hover:bg-rose-600/30 border border-rose-500/30"
+            className="w-full h-10 font-bold"
           >
             <Ban className="mr-2 h-4 w-4" />
             Cancel Simulation

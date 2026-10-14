@@ -26,7 +26,7 @@ export const FastBatchPage: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-950">
+    <div className="flex-1 flex flex-col items-center justify-center p-6">
       <FastBatchProgressCard session={session} onCancel={handleCancel} />
     </div>
   );

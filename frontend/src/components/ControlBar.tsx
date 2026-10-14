@@ -38,18 +38,18 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800 bg-slate-950/95 px-4 py-3 shadow-2xl backdrop-blur-md">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#2b305c]/80 bg-[#0a0d3a]/95 px-4 py-3 shadow-2xl backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
         {/* Left: Round Progress Status */}
         <div className="flex items-center space-x-3">
           <div className="flex flex-col">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#949ba4]">
               Round Progress
             </span>
-            <div className="flex items-center space-x-1.5 font-mono text-sm font-bold text-slate-100">
+            <div className="flex items-center space-x-1.5 font-mono text-base font-extrabold text-white">
               <span>{currentRound.toLocaleString()}</span>
-              <span className="text-slate-500">/</span>
-              <span>{maxRounds.toLocaleString()}</span>
+              <span className="text-[#949ba4]">/</span>
+              <span className="text-[#949ba4]">{maxRounds.toLocaleString()}</span>
             </div>
           </div>
         </div>
@@ -60,12 +60,13 @@ export const ControlBar: React.FC<ControlBarProps> = ({
           <Button
             type="button"
             size="sm"
+            variant={isPaused ? "green" : "default"}
             disabled={isCompleted}
             onClick={isPaused ? onResume : onPause}
-            className={`h-9 px-4 font-medium transition-all ${
+            className={`h-9 px-5 font-bold shadow-md ${
               isPaused
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                : 'bg-amber-600 hover:bg-amber-500 text-white'
+                ? 'bg-[#35ed7e] text-black hover:bg-[#2ecc71]'
+                : 'bg-[#5865f2] text-white hover:bg-[#4752c4]'
             }`}
           >
             {isPaused ? (
@@ -84,11 +85,11 @@ export const ControlBar: React.FC<ControlBarProps> = ({
           {/* Speed Slider */}
           <div className="flex flex-1 flex-col space-y-1">
             <div className="flex items-center justify-between text-xs">
-              <span className="flex items-center text-slate-400 font-medium">
-                <FastForward className="mr-1 h-3.5 w-3.5 text-cyan-400" />
+              <span className="flex items-center text-[#949ba4] font-medium">
+                <FastForward className="mr-1 h-3.5 w-3.5 text-[#00b0f4]" />
                 Pacing Delay
               </span>
-              <span className="font-mono text-xs text-cyan-400 font-semibold">
+              <span className="font-mono text-xs text-[#00b0f4] font-bold">
                 {delayMs === 0 ? '0 ms (Instant)' : `${delayMs} ms`}
               </span>
             </div>
@@ -111,7 +112,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
             variant="destructive"
             size="sm"
             onClick={onStop}
-            className="h-9 bg-rose-600/20 text-rose-300 hover:bg-rose-600/30 border border-rose-500/30"
+            className="h-9 px-3.5"
           >
             <Square className="mr-1.5 h-3.5 w-3.5 fill-current" />
             Stop
@@ -120,12 +121,12 @@ export const ControlBar: React.FC<ControlBarProps> = ({
           {/* Export Database Button */}
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={handleExportDb}
-            className="h-9 border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+            className="h-9 px-3.5 border-[#2b305c] bg-[#1e2353] hover:bg-[#262c69] text-white font-semibold"
           >
-            <Download className="mr-1.5 h-3.5 w-3.5 text-slate-400" />
+            <Download className="mr-1.5 h-3.5 w-3.5 text-[#00b0f4]" />
             Export DB
           </Button>
         </div>

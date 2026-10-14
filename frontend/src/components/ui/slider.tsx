@@ -24,7 +24,7 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
           disabled={disabled}
           onChange={(e) => onValueChange?.(Number(e.target.value))}
           className={cn(
-            'h-2 w-full cursor-pointer appearance-none rounded-lg bg-secondary accent-primary disabled:cursor-not-allowed disabled:opacity-50',
+            'h-2.5 w-full cursor-pointer appearance-none rounded-pill bg-[#23272a] accent-[#5865f2] border border-[#2b305c]/50 disabled:cursor-not-allowed disabled:opacity-50 transition-all',
             className
           )}
           {...props}

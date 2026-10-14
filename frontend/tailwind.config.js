@@ -7,12 +7,39 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['"Space Grotesk"', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', '"Geist Variable"', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+      },
       colors: {
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
         background: "var(--background)",
         foreground: "var(--foreground)",
+        canvas: "#0a0d3a",
+        surface: {
+          indigo: "#1e2353",
+          onyx: "#23272a",
+          black: "#000000",
+        },
+        blurple: {
+          DEFAULT: "#5865f2",
+          hover: "#4752c4",
+          light: "#7983f5",
+          dark: "#3c45a5",
+        },
+        discord: {
+          green: "#35ed7e",
+          magenta: "#ec48bd",
+          link: "#00b0f4",
+          canvas: "#0a0d3a",
+          surface: "#1e2353",
+          onyx: "#23272a",
+          muted: "#949ba4",
+          hairline: "#2b305c",
+        },
         primary: {
           DEFAULT: "var(--primary)",
           foreground: "var(--primary-foreground)",
@@ -47,9 +74,14 @@ export default {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        xs: "6px",
+        sm: "12px",
+        md: "14px",
+        lg: "16px",
+        xl: "24px",
+        "2xl": "32px",
+        jumbo: "40px",
+        pill: "50px",
       },
     },
   },

@@ -30,18 +30,18 @@ export const CompletionPage: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-950">
-      <Card className="w-full max-w-4xl border-slate-800 bg-slate-900/90 shadow-2xl backdrop-blur-md">
+    <div className="flex-1 flex flex-col items-center justify-center p-6">
+      <Card className="w-full max-w-4xl border-[#2b305c] bg-[#1e2353] shadow-2xl shadow-black/80 backdrop-blur-md">
         <CardHeader className="text-center pb-4">
-          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
-            <CheckCircle2 className="h-8 w-8" />
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-sm bg-[#35ed7e]/20 text-[#35ed7e] border border-[#35ed7e]/40 shadow-lg shadow-[#35ed7e]/20">
+            <CheckCircle2 className="h-9 w-9" />
           </div>
-          <CardTitle className="text-2xl text-slate-100 font-bold">
+          <CardTitle className="font-display text-2xl sm:text-3xl text-white font-extrabold uppercase tracking-tight">
             Simulation Benchmark Completed
           </CardTitle>
-          <CardDescription className="text-slate-400">
+          <CardDescription className="text-xs text-[#949ba4]">
             Completed {session.completion_summary?.total_rounds ?? session.current_round} simulated rounds. Session ID:{' '}
-            <span className="font-mono text-slate-300">{sessionId}</span>
+            <span className="font-mono text-white font-semibold">{sessionId}</span>
           </CardDescription>
         </CardHeader>
 
@@ -53,33 +53,34 @@ export const CompletionPage: React.FC = () => {
           />
         </CardContent>
 
-        <CardFooter className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-slate-800">
+        <CardFooter className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-5 border-t border-[#2b305c]/80">
           {/* Action 1: Export Simulation Data */}
           <Button
             type="button"
             variant="secondary"
             disabled={isExporting}
             onClick={handleExportData}
-            className="w-full sm:w-auto h-10 px-5 border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium"
+            className="w-full sm:w-auto h-11 px-5 text-sm font-semibold border-[#2b305c] bg-[#0a0d3a] hover:bg-[#1e2353] text-white"
           >
             {isExporting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin text-amber-400" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#fee75c]" />
                 Preparing Export...
               </>
             ) : (
               <>
-                <Download className="mr-2 h-4 w-4 text-cyan-400" />
+                <Download className="mr-2 h-4 w-4 text-[#00b0f4]" />
                 Export Simulation Data
               </>
             )}
           </Button>
 
-          {/* Action 2: New Simulation */}
+          {/* Action 2: New Simulation (Electric green highest-intent button) */}
           <Button
             type="button"
+            variant="green"
             onClick={handleNewSimulation}
-            className="w-full sm:w-auto h-10 px-6 bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-md shadow-emerald-950/40"
+            className="w-full sm:w-auto h-11 px-6 text-sm font-extrabold shadow-lg shadow-[#35ed7e]/20"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             New Simulation
