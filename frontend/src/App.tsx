@@ -1,11 +1,24 @@
-import { SimulationDashboard } from './pages/SimulationDashboard';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
+import { SimulationProvider } from './context/SimulationContext';
+import { ConfigurationPage } from './pages/ConfigurationPage';
+import { FastBatchPage } from './pages/FastBatchPage';
+import { VisualizerPage } from './pages/VisualizerPage';
+import { CompletionPage } from './pages/CompletionPage';
 
-function App() {
+export default function App() {
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <SimulationDashboard />
-    </main>
+    <SimulationProvider>
+      <BrowserRouter>
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+          <Routes>
+            <Route path="/" element={<ConfigurationPage />} />
+            <Route path="/batch/:sessionId" element={<FastBatchPage />} />
+            <Route path="/simulate/:sessionId" element={<VisualizerPage />} />
+            <Route path="/complete/:sessionId" element={<CompletionPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </SimulationProvider>
   );
 }
-
-export default App;

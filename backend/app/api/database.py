@@ -24,8 +24,11 @@ async def _execute_database_purge(db: AsyncSession) -> PurgeDatabaseResponse:
             detail="Cannot purge database while simulations are actively running or paused. Stop active simulations first.",
         )
 
+    import time
+    start_time = time.perf_counter()
     repo = RunRepository(db)
     cleared_tables = await repo.purge_all_tables()
+    duration_ms = round((time.perf_counter() - start_time) * 1000.0, 1)
 
     # Clear inactive/completed in-memory session records
     simulation_manager._sessions.clear()
@@ -34,6 +37,10 @@ async def _execute_database_purge(db: AsyncSession) -> PurgeDatabaseResponse:
         status="cleared",
         tables_purged=len(cleared_tables),
         cleared_tables=cleared_tables,
+        tables_cleared=cleared_tables,
+        records_deleted=0,
+        duration_ms=duration_ms,
+        message=f"All records cleared across {len(cleared_tables)} tables",
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 

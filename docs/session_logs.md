@@ -515,3 +515,107 @@ Total Codebase   : 211 passed, 10 skipped, 0 failed (100% Pass Rate)
 - [`docs/session_logs.md`](session_logs.md): This log entry.
 
 
+
+---
+
+## Feature 008: Frontend Web Application Implementation Log
+
+**Date**: 2026-10-13  
+**Branch**: `008-frontend-web-application`  
+**Feature Specification**: [`specs/008-frontend-web-application/spec.md`](../specs/008-frontend-web-application/spec.md)  
+**Implementation Plan**: [`specs/008-frontend-web-application/plan.md`](../specs/008-frontend-web-application/plan.md)  
+**Task List**: [`specs/008-frontend-web-application/tasks.md`](../specs/008-frontend-web-application/tasks.md)  
+
+---
+
+### 1. Feature Summary & Objectives
+
+Delivered the complete, production-ready **Frontend Web Application** for the Decision Blackjack benchmarking suite in `frontend/`. Implemented as an interactive Single-Page Application (SPA) using **React 19**, **TypeScript**, **Tailwind CSS**, **shadcn/ui** primitives, **React Router 8** (`react-router` v8.4.0), and **GSAP** (`gsap`, `@gsap/react`), the web application connects to the backend over REST and native WebSockets.
+
+Key capabilities delivered:
+1. **Interactive Variant Rules Configuration (`/`)**: Form exposing all rules from `docs/Reglas de BlackJack.md` (Soft 17, 3:2/6:5/1:1, Peek/ENHC, Insurance, Surrender, DAS, Splits 1-4, RSA, Hit Split Aces, Decks 1-8, Penetration 50-85%, Burn cards 0-5, Bankrolls, Min/Max bets, Rounds 1-100,000, Seed, Mock Mode), along with optional player selection checkboxes (Jev, Laya, Basic Strategy).
+2. **Startup Database Tools**: Header navbar providing global "Export Whole Database" (`GET /api/export/database`) and "Delete Database" (`DELETE /api/database`) with confirmation modal.
+3. **Dual-Path Execution**:
+   - **Path 1 (Fast Batch `/batch/:sessionId`)**: Headless, unthrottled execution displaying a focused progress card with round progress (`Round 450 / 1,000`), percentage bar, player bankroll chips, and Cancel button.
+   - **Path 2 (Real-Time Visualizer `/simulate/:sessionId`)**: Synchronized 2x3 grid displaying 3 player columns (Jev, Laya, Basic Strategy).
+4. **2x3 Table Visualizer & Exact Carpet Colors**:
+   - **Jev**: `rgb(213, 120, 190)`
+   - **Laya**: `rgb(68, 120, 208)`
+   - **Basic Strategy**: `rgb(118, 194, 154)`
+5. **GSAP Card Dealing & Horizontal Doubling**:
+   - Dynamic duration scaling: `duration = Math.max(0, Math.min(0.4, (delay_ms / 1000) * 0.4))` smoothly scaling down to 0 ms (instant placement) at maximum speed.
+   - Doubled cards render horizontally with **90-degree rotation**.
+6. **Live Stats & 3 Dynamic Graph Bars**:
+   - Top line: `Current Bet: $X` and `Action: [BADGE]`.
+   - Basic Strategy comparison banner (`✓ Matches Optimal` or `✗ Deviates: Recommended [Action]`).
+   - Real-time bankroll state with P/L delta (`+$50`).
+   - **3 Dynamic Graph Bars**:
+     1. Basic Strategy Optimality Rate (% agreement).
+     2. Outcome distribution (% Win, % Push, % Loss).
+     3. Relative bankroll percentage vs starting bankroll.
+7. **Deselected Players Handling**:
+   - Unselected players display an empty table showing only the background carpet color (no card animations) and darkened/disabled stats (`opacity-40 grayscale`).
+8. **Interactive Controls & Speed Slider**:
+   - Bottom bar with Pause/Resume, dynamic speed slider (0 to 2,000 ms), Stop, and Export Database shortcut.
+9. **RNF-02 Fault Recovery Modal**:
+   - Auto-pauses on provider timeout/fault with simple explanation and actionable "Retry Turn" button for recoverable faults.
+10. **Completion Page (`/complete/:sessionId`)**:
+    - Tri-Player Summary Table (Final Bankroll, Net P/L, Win Rate %, Optimality Rate %) with "Export Simulation Data" and "New Simulation" buttons.
+
+---
+
+### 2. Architecture & Implemented Components
+
+```text
+frontend/src/
+├── types/
+│   ├── simulation.ts          # Core domain models, rules, visual card/table states
+│   └── api.ts                 # REST and WebSocket payload interfaces
+├── lib/
+│   ├── utils.ts               # cn() classname merger (clsx + tailwind-merge)
+│   └── cardAssets.ts          # SVG playing card asset resolver using Vite eager glob
+├── services/
+│   ├── apiClient.ts           # REST API client (simulations, control, export, database)
+│   └── websocketService.ts    # Native WebSocket client manager with automatic reconnect
+├── context/
+│   └── SimulationContext.tsx  # Centralized React telemetry and lifecycle store
+├── components/
+│   ├── ui/                    # shadcn UI primitives (button, badge, card, input, etc.)
+│   ├── Navbar.tsx             # Startup header with Export Database & Delete Database modal
+│   ├── DeleteDatabaseModal.tsx# Confirmation modal for DELETE /api/database
+│   ├── ControlBar.tsx         # Bottom bar with Pause/Resume, 0-2000ms speed slider, Stop
+│   ├── FaultAlertModal.tsx    # RNF-02 alert modal with Retry Turn button
+│   ├── CardView.tsx           # GSAP animated playing card with 90° horizontal double down
+│   └── TriPlayerSummaryTable.tsx # Comparative final metrics table
+├── forms/
+│   └── SimulationConfigForm.tsx # RHF variant rules form with dual-path launch
+├── visualization/
+│   ├── VisualizerGrid2x3.tsx  # 2x3 Grid coordinating 3 player columns
+│   ├── TableCarpetRow.tsx     # Exact RGB carpet tables, dealer/player slots, empty table state
+│   ├── LiveStatsRow.tsx       # Comparative live stats and 3 dynamic graph bars
+│   └── FastBatchProgressCard.tsx # Headless progress card with cancel action
+└── pages/
+    ├── ConfigurationPage.tsx  # Home route ('/')
+    ├── FastBatchPage.tsx      # Path 1 headless batch route ('/batch/:sessionId')
+    ├── VisualizerPage.tsx     # Path 2 real-time visualizer route ('/simulate/:sessionId')
+    └── CompletionPage.tsx     # Completion route ('/complete/:sessionId')
+```
+
+---
+
+### 3. Verification & Validation Summary
+
+1. **TypeScript Strict Type Checking**:
+   - `npx tsc --noEmit` executed with **0 errors**.
+2. **Production Vite Build**:
+   - `npm run build` executed successfully, packaging 52 SVG playing cards, CSS theme variables, and JavaScript bundles in 1.28s.
+3. **Backend Integration**:
+   - Automated pytest suites across simulations, websockets, and export verified with **100% pass rate** (211 passed).
+4. **All 7 Quickstart Scenarios Validated**:
+   - Scenario 1: Variant Rules Form & Fast Batch Execution (Path 1)
+   - Scenario 2: Real-Time Tri-Entity Visualizer (Path 2) with 2x3 Grid
+   - Scenario 3: Deselected Player Empty Table & Darkened Stats
+   - Scenario 4: Dynamic Speed Slider Pacing Scaling (0 ms instant placement)
+   - Scenario 5: External AI Provider Fault & Recovery (RNF-02)
+   - Scenario 6: Completion Page Success Dialog & Actions
+   - Scenario 7: Startup Database Tools (Export Whole DB & Delete DB)

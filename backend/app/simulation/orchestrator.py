@@ -166,6 +166,11 @@ class SimulationOrchestrator(OrchestratorController):
                     "entity_id": table.entity_id,
                     "round_number": self._current_round,
                     "generation": next_generation,
+                    "shoe_number": next_generation + 1,
+                    "message": "Shuffling Deck",
+                    "cards_remaining": table.cards_remaining,
+                    "running_count": table.running_count,
+                    "true_count": table.true_count,
                 },
             )
 
@@ -214,6 +219,25 @@ class SimulationOrchestrator(OrchestratorController):
                     if "comparison" in decision.metadata:
                         payload["comparison"] = decision.metadata["comparison"]
 
+                    active_h_idx = min(table.round_engine.active_hand_index, max(0, len(table.round_engine.player_hands) - 1))
+                    if table.round_engine.player_hands:
+                        payload["current_bet"] = table.round_engine.player_hands[active_h_idx].bet
+                        payload["player_hands"] = [
+                            {
+                                "cards": [str(c) for c in h.cards],
+                                "total": h.total,
+                                "is_doubled": h.is_doubled,
+                                "is_busted": h.is_busted,
+                                "is_blackjack": h.is_blackjack,
+                                "bet": h.bet,
+                            }
+                            for h in table.round_engine.player_hands
+                        ]
+
+                    payload["cards_remaining"] = table.cards_remaining
+                    payload["running_count"] = table.running_count
+                    payload["true_count"] = table.true_count
+
                     await self._emit(EventType.DECISION_APPLIED, payload)
 
                 if self._single_turn_step:
@@ -239,6 +263,25 @@ class SimulationOrchestrator(OrchestratorController):
                             {"outcome": ho.outcome.value, "net_profit": ho.net_profit}
                             for ho in settlement.hand_outcomes
                         ],
+                        "dealer_cards": [str(c) for c in table.round_engine.dealer_hand.cards],
+                        "dealer_total": table.round_engine.dealer_hand.total,
+                        "dealer_is_busted": table.round_engine.dealer_hand.is_busted,
+                        "player_hands": [
+                            {
+                                "cards": [str(c) for c in h.cards],
+                                "total": h.total,
+                                "is_doubled": h.is_doubled,
+                                "is_busted": h.is_busted,
+                                "is_blackjack": h.is_blackjack,
+                                "bet": h.bet,
+                            }
+                            for h in table.round_engine.player_hands
+                        ],
+                        "shoe_generation": table.shoe_generation + 1,
+                        "reshuffle_needed": table.reshuffle_needed,
+                        "cards_remaining": table.cards_remaining,
+                        "running_count": table.running_count,
+                        "true_count": table.true_count,
                     },
                 )
                 if table.is_eliminated:
@@ -288,8 +331,14 @@ class SimulationOrchestrator(OrchestratorController):
                     {
                         "entity_id": table.entity_id,
                         "round_number": round_num,
+                        "current_bet": table.round_engine.player_hands[0].bet,
                         "player_cards": [str(c) for c in table.round_engine.player_hands[0].cards],
-                        "dealer_upcard": str(table.round_engine.dealer_hand.upcard),
+                        "dealer_upcard": str(table.round_engine.dealer_hand.upcard) if table.round_engine.dealer_hand.upcard else "",
+                        "dealer_cards": [str(c) for c in table.round_engine.dealer_hand.cards],
+                        "shoe_generation": table.shoe_generation + 1,
+                        "cards_remaining": table.cards_remaining,
+                        "running_count": table.running_count,
+                        "true_count": table.true_count,
                     },
                 )
 

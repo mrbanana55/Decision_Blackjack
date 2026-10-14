@@ -290,6 +290,10 @@ class PurgeDatabaseResponse(BaseModel):
     status: str = "cleared"
     tables_purged: int = 15
     cleared_tables: list[str]
+    tables_cleared: list[str] | None = None
+    records_deleted: int = 0
+    duration_ms: float = 0.0
+    message: str = "Database successfully purged"
     timestamp: str
 
 
@@ -339,6 +343,7 @@ class EntityDeviationStats(BaseModel):
     optimal_decisions: int = 0
     deviations_count: int = 0
     optimality_rate: float = 1.0
+    agreement_rate: float = 1.0
     categories: dict[str, CategoryDeviationStats] = Field(
         default_factory=lambda: {
             "hard_total": CategoryDeviationStats(),
@@ -364,6 +369,7 @@ class EntityDeviationStats(BaseModel):
             if self.total_decisions > 0
             else 1.0
         )
+        self.agreement_rate = self.optimality_rate
 
         cat_key = comparison.category.lower()
         if cat_key not in self.categories:

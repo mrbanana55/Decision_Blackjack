@@ -98,3 +98,58 @@ def test_websocket_client_flow_control():
 
         # Send resume
         ws.send_json({"command": "resume"})
+
+
+def test_websocket_client_pause_resume_pause_cycle():
+    """Verify that pausing, resuming, and pausing again over WebSocket pauses as expected."""
+    payload = {
+        "max_rounds": 20,
+        "delay_ms": 150.0,
+        "entities": ["optimal"],
+        "mock_mode": True,
+    }
+    res = client.post("/api/simulations", json=payload)
+    session_id = res.json()["session_id"]
+
+    with client.websocket_connect(f"/ws/simulations/{session_id}") as ws:
+        snap = ws.receive_json()
+        assert snap["event_type"] == "SESSION_SNAPSHOT"
+
+        # 1. First pause
+        ws.send_json({"command": "pause"})
+        paused_1 = False
+        while True:
+            evt = ws.receive_json()
+            if evt["event_type"] == "SESSION_PAUSED":
+                paused_1 = True
+                break
+        assert paused_1
+
+        # 2. Resume
+        ws.send_json({"command": "resume"})
+        resumed = False
+        while True:
+            evt = ws.receive_json()
+            if evt["event_type"] == "SESSION_RESUMED":
+                resumed = True
+                break
+        assert resumed
+
+        # Read at least one round settling
+        while True:
+            evt = ws.receive_json()
+            if evt["event_type"] == "ROUND_SETTLED":
+                break
+
+        # 3. Second pause
+        ws.send_json({"command": "pause"})
+        paused_2 = False
+        for _ in range(20):
+            evt = ws.receive_json()
+            if evt["event_type"] == "SESSION_PAUSED":
+                paused_2 = True
+                break
+            if evt["event_type"] == "SESSION_COMPLETED":
+                break
+        assert paused_2, "Simulation failed to pause on second pause command"
+

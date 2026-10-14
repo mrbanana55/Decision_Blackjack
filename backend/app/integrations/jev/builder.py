@@ -61,10 +61,12 @@ class JevSchemaBuilder:
             else "Unknown"
         )
 
+        
         state_parts = [
-            f"You are playing blackjack. Round {context.round_number}, Hand {context.hand_index + 1}.",
-            f"Player holds [{cards_str}]{pair_note} (Total: {context.player_total}, {soft_hard}).",
-            f"Dealer Upcard: {dealer_str}.",
+            f"BLACKJACK | Round {context.round_number}, Hand {context.hand_index + 1}",
+            "Objective: Beat the dealer's final hand without busting (>21). Play to maximize Expected Value—win by holding a higher total than the dealer, or by standing when the dealer is likely to bust.",
+            f"Your Hand: [{cards_str}]{pair_note} -> Total: {context.player_total} ({soft_hard})",
+            f"Dealer Upcard: [{dealer_str}] (Dealer must hit until 17+)",
         ]
 
         if bankroll is not None:

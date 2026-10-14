@@ -1,11 +1,15 @@
 """Isolated entity table managing a single DecisionProvider, BlackjackRound, and metrics."""
 
+from __future__ import annotations
+
 import asyncio
+from app.engine.card import Card
 from app.engine.round import BlackjackRound, RoundState
 from app.engine.rules import TableRules
 from app.engine.settlement import RoundSettlement
 from app.engine.shoe import Shoe
 from app.engine.types import Action, RoundPhase, SettlementOutcome
+from app.models.card_counter import HiLoCardCounter
 from app.models.decision_comparator import DecisionComparator, DecisionComparison
 from app.simulation.interfaces import DecisionProvider, IllegalAgentActionError
 from app.simulation.types import (
@@ -35,6 +39,8 @@ class EntityTable:
         self.shoe_generation: int = shoe_generation
         self.is_eliminated: bool = False
         self.comparator: DecisionComparator = DecisionComparator(rules=self.rules)
+        self.counter: HiLoCardCounter = HiLoCardCounter(num_decks=self.rules.num_decks)
+        self._counted_card_ids: set[int] = set()
 
         active_shoe = shoe if shoe is not None else Shoe(num_decks=self.rules.num_decks)
         self.round_engine: BlackjackRound = BlackjackRound(
@@ -52,6 +58,43 @@ class EntityTable:
         self.suboptimal_decisions: int = 0
         self.last_decision: AgentDecision | None = None
         self.last_comparison: DecisionComparison | None = None
+
+    @property
+    def cards_remaining(self) -> int:
+        return self.round_engine.shoe.cards_remaining
+
+    @property
+    def running_count(self) -> int:
+        return self.counter.running_count
+
+    @property
+    def true_count(self) -> float:
+        return self.counter.true_count
+
+    def _observe_one(self, card: Card) -> None:
+        c_id = id(card)
+        if c_id not in self._counted_card_ids:
+            self.counter.observe_card(card)
+            self._counted_card_ids.add(c_id)
+            if hasattr(self.provider, "observe_card"):
+                try:
+                    res = self.provider.observe_card(card)
+                    if asyncio.iscoroutine(res):
+                        res.close()
+                except Exception:
+                    pass
+
+    def sync_card_counter(self) -> None:
+        """Observe all currently exposed cards on table."""
+        for hand in self.round_engine.player_hands:
+            for card in hand.cards:
+                self._observe_one(card)
+
+        if self.round_engine.dealer_hand.is_revealed:
+            for card in self.round_engine.dealer_hand.cards:
+                self._observe_one(card)
+        elif self.round_engine.dealer_hand.upcard:
+            self._observe_one(self.round_engine.dealer_hand.upcard)
 
     @property
     def entity_type(self) -> EntityType:
@@ -96,6 +139,8 @@ class EntityTable:
         """Replace active shoe with a new generation from the shoe pool."""
         self.round_engine.shoe = shoe
         self.shoe_generation = generation
+        self.counter.reset()
+        self._counted_card_ids.clear()
         if hasattr(self.provider, "reset_count"):
             self.provider.reset_count()
 
@@ -106,7 +151,7 @@ class EntityTable:
         if hasattr(self.provider, "get_bet"):
             cards_seen = getattr(self.round_engine.shoe, "cards_dealt_count", 0)
             total_cards = getattr(self.round_engine.shoe, "num_decks", 6) * 52
-            true_count = getattr(self.provider, "true_count", 0.0) if hasattr(self.provider, "true_count") else 0.0
+            true_count = self.counter.true_count
             try:
                 res = self.provider.get_bet(
                     bankroll=self.current_bankroll,
@@ -137,8 +182,11 @@ class EntityTable:
         if self.is_eliminated:
             raise RuntimeError(f"Entity '{self.entity_id}' is bankrupt and eliminated.")
 
-        if self.reshuffle_needed and hasattr(self.provider, "reset_count"):
-            self.provider.reset_count()
+        if self.reshuffle_needed:
+            self.counter.reset()
+            self._counted_card_ids.clear()
+            if hasattr(self.provider, "reset_count"):
+                self.provider.reset_count()
 
         # Query provider.get_bet() if bet is not explicitly supplied (FR-008)
         if bet is None:
@@ -159,13 +207,7 @@ class EntityTable:
                 bet = self.rules.min_bet
 
         state = self.round_engine.start_round(bet)
-
-        # Notify provider of dealt player cards if it supports card observation
-        if hasattr(self.provider, "observe_cards"):
-            visible_cards = list(self.round_engine.player_hands[0].cards)
-            if self.round_engine.dealer_hand.upcard:
-                visible_cards.append(self.round_engine.dealer_hand.upcard)
-            self.provider.observe_cards(visible_cards)
+        self.sync_card_counter()
 
         return state
 
@@ -228,7 +270,7 @@ class EntityTable:
                 dealer_upcard=dealer_upcard,
                 legal_actions=list(legal_actions),
                 can_insure=False,
-                true_count=0.0,
+                true_count=self.counter.true_count,
             )
 
             decision = await self.provider.get_decision(context)
@@ -257,12 +299,14 @@ class EntityTable:
             }
 
             self.round_engine.submit_action(decision.action)
+            self.sync_card_counter()
             self.last_decision = decision
             return decision
 
         # Dealer turn resolution
         if self.round_engine.phase == RoundPhase.DEALER_TURN:
             self.round_engine.play_dealer_to_end()
+            self.sync_card_counter()
             return None
 
         # Settlement resolution
@@ -274,6 +318,7 @@ class EntityTable:
 
     def settle_round(self) -> RoundSettlement:
         """Finalize concluded round outcomes, payouts, and bankruptcy tracking."""
+        self.sync_card_counter()
         settlement = self.round_engine.settle()
         self.rounds_played += 1
 

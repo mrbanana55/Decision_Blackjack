@@ -212,15 +212,18 @@ class SimulationManager:
             event_type_str = "SESSION_ERROR"
             payload["allowed_actions"] = ["retry", "abort"]
 
+        # 5. Handle SHOE_RESHUFFLED
+        elif event.event_type == EventType.SHOE_RESHUFFLED:
+            event_type_str = "SHOE_RESHUFFLED"
+
         await self.broadcast(record, event_type_str, round_number, payload)
 
-        # 5. Pacing delay enforcement for visualized mode at round settlement
-        if (
-            event.event_type == EventType.ROUND_SETTLED
-            and record.execution_mode == ExecutionMode.VISUALIZED
-            and record.delay_ms > 0
-        ):
-            await asyncio.sleep(record.delay_ms / 1000.0)
+        # 6. Pacing delay enforcement for visualized mode at round settlement or shoe reshuffle
+        if record.execution_mode == ExecutionMode.VISUALIZED and record.delay_ms > 0:
+            if event.event_type == EventType.ROUND_SETTLED:
+                await asyncio.sleep(record.delay_ms / 1000.0)
+            elif event.event_type == EventType.SHOE_RESHUFFLED:
+                await asyncio.sleep(min(max(record.delay_ms, 500.0), 1200.0) / 1000.0)
 
     def start_simulation(self, session_id: str) -> asyncio.Task[Any] | None:
         """Launch background async task to run the simulation loop."""
@@ -253,7 +256,19 @@ class SimulationManager:
         record = self.get_session(session_id)
         if not record:
             raise ValueError(f"Session '{session_id}' not found.")
-        await record.orchestrator.resume()
+
+        if record.task is None or record.task.done():
+            async def _run() -> None:
+                try:
+                    await record.orchestrator.resume()
+                except Exception as e:
+                    logger.exception("Simulation execution failed on resume: %s", e)
+
+            task = asyncio.create_task(_run())
+            record.task = task
+            await asyncio.sleep(0.001)
+        else:
+            await record.orchestrator.resume()
 
     async def step(self, session_id: str, level: str = "round") -> None:
         """Step execution by single round or turn."""
@@ -293,7 +308,19 @@ class SimulationManager:
         target_entity = entity_id or record.orchestrator.failed_entity_id
         if not target_entity:
             raise ValueError("No failed entity recorded to retry.")
-        await record.orchestrator.retry_failed_entity(target_entity)
+
+        if record.task is None or record.task.done():
+            async def _run() -> None:
+                try:
+                    await record.orchestrator.retry_failed_entity(target_entity)
+                except Exception as e:
+                    logger.exception("Simulation execution failed on retry: %s", e)
+
+            task = asyncio.create_task(_run())
+            record.task = task
+            await asyncio.sleep(0.001)
+        else:
+            await record.orchestrator.retry_failed_entity(target_entity)
 
 
 # Global singleton instance

@@ -46,6 +46,10 @@ async def websocket_simulation_endpoint(websocket: WebSocket, session_id: str) -
                     tid: {
                         "bankroll": tbl.current_bankroll,
                         "rounds_played": tbl.rounds_played,
+                        "shoe_generation": tbl.shoe_generation + 1,
+                        "cards_remaining": tbl.cards_remaining,
+                        "running_count": tbl.running_count,
+                        "true_count": tbl.true_count,
                     }
                     for tid, tbl in orch.tables.items()
                 },
