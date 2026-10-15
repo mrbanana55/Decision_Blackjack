@@ -10,6 +10,8 @@ It pits three players against each other in synchronized, head-to-head competiti
 
 Watch them play live on a 2x3 casino visualizer with fluid GSAP card animations, or run headless batches of thousands of rounds in seconds to benchmark strategy accuracy, win rates, and bankroll curves.
 
+![](demo_readme.gif)
+
 ---
 
 ## What Does This Project Do?
