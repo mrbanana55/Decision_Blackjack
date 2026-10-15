@@ -1,26 +1,12 @@
 import os
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
-from dotenv import find_dotenv, load_dotenv
 from pydantic import BaseModel, Field, field_validator
 
+from app.env import load_env_file
 
-def _load_env_file() -> None:
-    """Load variables from .env file into os.environ if not already present."""
-    env_file = find_dotenv(usecwd=True)
-    if not env_file:
-        for parent in Path(__file__).resolve().parents:
-            candidate = parent / ".env"
-            if candidate.is_file():
-                env_file = str(candidate)
-                break
-    if env_file:
-        load_dotenv(env_file, override=False)
-
-
-_load_env_file()
+load_env_file()
 
 
 class JevConfig(BaseModel):

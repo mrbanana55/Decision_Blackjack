@@ -4,6 +4,9 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
+from app.env import load_env_file
+
+load_env_file()
 
 tags_metadata = [
     {

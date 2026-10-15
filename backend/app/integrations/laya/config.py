@@ -5,6 +5,10 @@ from urllib.parse import urlparse, urlunparse
 
 from pydantic import BaseModel, Field
 
+from app.env import load_env_file
+
+load_env_file()
+
 
 def is_running_in_docker() -> bool:
     """Determine whether the current process is running inside a Docker container."""

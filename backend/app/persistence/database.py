@@ -12,6 +12,10 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from app.env import load_env_file
+
+load_env_file()
+
 DEFAULT_DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql+asyncpg://postgres:postgres@localhost:5432/decision_blackjack",

@@ -5,7 +5,8 @@ WORKDIR /app
 # Optimize python and uv execution in container
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    IN_DOCKER=true
 
 # Copy dependency definition
 COPY pyproject.toml ./
